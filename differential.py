@@ -7,16 +7,18 @@ import gtk, gobject
 import numpy as np
 
 from numpy import cos, sin, pi, arctan2, sqrt,\
-                  square, int, linspace, arange,sum,\
-                  array, zeros, mean, diff, column_stack,\
+                  square, int, linspace, arange, sum, abs, logical_and,\
+                  array, zeros, mean, diff, column_stack, row_stack,\
                   unique, dot, logical_not, ones, concatenate
-from numpy.random import normal, randint, random, shuffle
+from numpy.random import normal, randint, random, shuffle, seed
 
 from scipy.spatial import cKDTree
 
 import cairo, Image
 from collections import defaultdict
 from itertools import count
+
+seed(1)
 
 
 BACK = [0.1]*3
@@ -238,21 +240,6 @@ class Line(object):
 
     return newv, [b,c]
 
-  def get_tangent(self,a):
-   
-    try:
-
-      vv = self.SV[a]
-      sx = self.X[vv[1]] - self.X[vv[0]]
-      sy = self.Y[vv[1]] - self.Y[vv[0]]
-      dd = sqrt(sx*sx+sy*sy)
-      scale = 1./dd
-
-    except IndexError:
-      return 0,0
-
-    return sx*scale,sy*scale, dd
-
 
 
 def init_circle(l,ix,iy,r,n):
@@ -278,41 +265,56 @@ def init_circle(l,ix,iy,r,n):
   connected_to.append(first)
   l._add_segment(vv[0],vv[-1],connected_to=connected_to)
 
-
 def growth(l):
 
-  grow = []
+  kvv = row_stack(l.SV.values())
+  k_mapping = {k:i for (i,k) in enumerate(l.SV.keys())}
+
+  kvvx = l.X[kvv]
+  kvvy = l.Y[kvv]
+
+  dx = diff(kvvx,axis=1).flatten()
+  dy = diff(kvvy,axis=1).flatten()
+
+  dd = sqrt(dx*dx+dy*dy)
+  tx = dx/dd
+  ty = dy/dd
+
   count = 0
-
-  #near2 = l.get_all_near_vertices(FARL*2.)
-
+  grow = []
   for s in l.SV.keys():
 
     ss = l.SS[s]
-    
-    try:
-      t0x,t0y,dd0 = l.get_tangent(ss[0])
-      t1x,t1y,dd1 = l.get_tangent(ss[1])
-      dd = (dd0+dd1)*0.5
 
-      dot = t0x*t1x+t0y*t1y
-      kappa = 1.-np.abs(dot)
-    except IndexError:
-      kappa = 0.
-   
-    if random()<kappa**2 and dd>NEARL:
+    s0 = k_mapping[ss[0]]
+    s1 = k_mapping[ss[1]]
+
+    length = (dd[s0]+dd[s1])*0.5
+    dot = tx[s0]*tx[s1]+ty[s0]*ty[s1]
+    kappa = 1.-np.abs(dot)
+
+    if random()<kappa**2 and length>NEARL:
     #if dd>NEARL:
       grow.append(s)
       count += 1
 
-  print 'total:',l.vnum,'new:',count
+  #mapping = row_stack([l.SS[k] for k in kk])
 
+  #print kk
+
+  #kappa = 1.-np.abs(sum((tx[mapping] * ty[mapping]).squeeze(),axis=1))
+
+  #rnd = random(size=(kappa.shape))
+
+  #grow = logical_and(rnd<kappa,dd>NEARL).nonzero()[0]
+    
   new_vertices = []
   for g in grow:
     newv,_ = l.split_segment(g)
     new_vertices.append(newv)
 
   return new_vertices
+
 
 def segment_attract(l,sx,sy):
 
@@ -329,6 +331,7 @@ def segment_attract(l,sx,sy):
       sy[vv[1]] -= sin(a)
       sx[vv[1]] -= cos(a)
 
+
 def collision_reject(l,sx,sy):
 
   X = l.X
@@ -337,16 +340,8 @@ def collision_reject(l,sx,sy):
 
   for k,(x,y,ii) in enumerate(zip(X,Y,near)):
 
-    iii = set(ii)
-    try:
-      iii.remove(k)
-    except KeyError:
-      pass
-    inds = list(iii)
-
-
-    dx = x - X[inds]
-    dy = y - Y[inds]
+    dx = x - X[ii]
+    dy = y - Y[ii]
     dd = sqrt(square(dx)+square(dy))
 
     force = FARL-dd
@@ -385,11 +380,8 @@ def main():
 
   def step():
 
-    L.update_tree()
-
-    #if random()<0.1:
-
     new_vertices = growth(L)
+    L.update_tree()
 
     if not render.steps%10:
 
@@ -419,8 +411,16 @@ def main():
   gtk.main()
 
 
+if __name__ == '__main__' :
 
-if __name__ == '__main__':
+  if True:
 
-  main()
+    import pstats, cProfile
+    cProfile.run('main()','profile.profile')
+    p = pstats.Stats('profile.profile')
+    p.strip_dirs().sort_stats('cumulative').print_stats()
+
+  else:
+
+    main()
 
