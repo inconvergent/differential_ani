@@ -1,0 +1,6 @@
+*.png
+*.*~
+*.swp
+*.pyc
+img/*
+profile.profile
