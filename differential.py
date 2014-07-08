@@ -18,11 +18,6 @@ import cairo, Image
 from collections import defaultdict
 from itertools import count
 
-#from collections import deque
-
-
-FILENAME = './img/density_b'
-DRAW_ITT = 1000
 
 BACK = [0.1]*3
 FRONT = [0.8,0.8,0.8,0.9]
@@ -35,7 +30,7 @@ PI = pi
 TWOPI = 2.*pi
 
 NMAX = 2*1e8
-SIZE = 800
+SIZE = 1000
 ONE = 1./SIZE
 
 #UPDATE_NUM = 1 # write image this often
@@ -46,7 +41,7 @@ NEARL = 3*ONE # do not attempt to approach neighbours close than this
 
 MID = 0.5
 INIT_R = 0.0005
-INIT_N = 10
+INIT_N = 100
 
 
 
@@ -95,13 +90,13 @@ class Render(object):
 
     self.sur = sur
     self.ctx = ctx
-    self.ctx.set_line_width(ONE)
 
   def init_step(self,e):
 
     self.step = e
     #gobject.timeout_add(5,self.step_wrap)
     gobject.idle_add(self.step_wrap)
+    self.steps = 0
 
   def line(self,x1,y1,x2,y2):
 
@@ -110,15 +105,24 @@ class Render(object):
     self.ctx.line_to(x2,y2)
     self.ctx.stroke()
 
-  def circle(self,x,y,r):
+  def circle(self,x,y,r,fill=False):
 
     self.ctx.arc(x,y,r,0,pi*2.)
-    self.ctx.fill()
+    if fill:
+      self.ctx.fill()
+    else:
+      self.ctx.stroke()
 
-  def circle_stroke(self,x,y,r):
+  def circles(self,xx,yy,rr,fill=False):
 
-    self.ctx.arc(x,y,r,0,pi*2.)
-    self.ctx.stroke()
+    if fill:
+      action = self.ctx.fill
+    else:
+      action = self.ctx.stroke
+
+    for x,y,r in zip(xx,yy,rr):
+      self.ctx.arc(x,y,r,0,TWOPI)
+      action()
 
   def expose(self,*args):
 
@@ -130,6 +134,10 @@ class Render(object):
 
     res = self.step()
     self.expose()
+    self.steps += 1
+
+    if not self.steps%100:
+      print self.steps
 
     return res
 
@@ -238,12 +246,13 @@ class Line(object):
       vv = self.SV[a]
       sx = self.X[vv[1]] - self.X[vv[0]]
       sy = self.Y[vv[1]] - self.Y[vv[0]]
-      dd = 1./sqrt(sx*sx+sy*sy)
+      dd = sqrt(sx*sx+sy*sy)
+      scale = 1./dd
 
     except IndexError:
       return 0,0
 
-    return sx*dd,sy*dd
+    return sx*scale,sy*scale, dd
 
 
 
@@ -276,28 +285,28 @@ def growth(l):
   grow = []
   count = 0
 
-  near2 = l.get_all_near_vertices(FARL*2.)
+  #near2 = l.get_all_near_vertices(FARL*2.)
 
   for s in l.SV.keys():
 
     ss = l.SS[s]
     
     try:
-      t0x,t0y = l.get_tangent(ss[0])
-      t1x,t1y = l.get_tangent(ss[1])
+      t0x,t0y,dd0 = l.get_tangent(ss[0])
+      t1x,t1y,dd1 = l.get_tangent(ss[1])
+      dd = (dd0+dd1)*0.5
 
       dot = t0x*t1x+t0y*t1y
-      dd = 1.-np.abs(dot)
+      kappa = 1.-np.abs(dot)
     except IndexError:
-      dot = 0.
-      dd = 0.
-    
-    #if random()<1./len(near2[l.SV[s][0]]):
-    if random()<dd:
+      kappa = 0.
+   
+    if random()<kappa**2 and dd>NEARL:
+    #if dd>NEARL:
       grow.append(s)
       count += 1
 
-  print 'growth:',count
+  print 'total:',l.vnum,'new:',count
 
   new_vertices = []
   for g in grow:
@@ -336,6 +345,7 @@ def collision_reject(l,sx,sy):
       pass
     inds = list(iii)
 
+
     dx = x - X[inds]
     dy = y - Y[inds]
     dd = sqrt(square(dx)+square(dy))
@@ -350,46 +360,52 @@ def collision_reject(l,sx,sy):
 
 def main():
 
-  SX = zeros(NMAX,'float')
-  SY = zeros(NMAX,'float')
-
   L = Line()
+  render = Render(SIZE)
 
   init_circle(L,MID,MID,INIT_R,INIT_N)
 
-  render = Render(SIZE)
+  SX = zeros(NMAX,'float')
+  SY = zeros(NMAX,'float')
+
 
   def show(render,l):
 
     render.clear_canvas()
     render.ctx.set_source_rgba(*FRONT)
-    render.ctx.set_line_width(ONE)
+    render.ctx.set_line_width(ONE*2)
     for s,vv in l.SV.iteritems():
       render.line(l.X[vv[0]],l.Y[vv[0]],
                   l.X[vv[1]],l.Y[vv[1]])
+
+    #render.ctx.set_source_rgba(*CONTRASTA)
+    #vnum = l.vnum
+    #render.circles(l.X[:vnum],l.Y[:vnum],
+                   #ones(vnum,'float')*ONE*0.5)
 
 
   def step():
 
     L.update_tree()
 
+    #if random()<0.1:
+
+    new_vertices = growth(L)
+
     show(render,L)
 
-    if random()<0.01:
+    vnum = L.vnum
+    SX[:vnum] = 0.
+    SY[:vnum] = 0.
 
-      new_vertices = growth(L)
+    segment_attract(L,SX[:L.vnum],SY[:vnum])
+    collision_reject(L,SX[:L.vnum],SY[:vnum])
 
-    SX[:L.vnum] = 0.
-    SY[:L.vnum] = 0.
+    SX[:vnum] *= STP
+    SY[:vnum] *= STP
 
-    segment_attract(L,SX[:L.vnum],SY[:L.vnum])
-    collision_reject(L,SX[:L.vnum],SY[:L.vnum])
-
-    SX[:L.vnum] *= STP
-    SY[:L.vnum] *= STP
-
-    L.X[:L.vnum] += SX[:L.vnum]
-    L.Y[:L.vnum] += SY[:L.vnum]
+    L.X[:vnum] += SX[:vnum]
+    L.Y[:vnum] += SY[:vnum]
 
     return True
 
