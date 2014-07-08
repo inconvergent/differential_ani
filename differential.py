@@ -65,7 +65,6 @@ class Render(object):
     self.darea = darea
 
     self.num_img = 0
-    self.itt = 0
 
 
   def clear_canvas(self):
@@ -392,7 +391,11 @@ def main():
 
     new_vertices = growth(L)
 
-    show(render,L)
+    if not render.steps%10:
+
+      print render.steps
+
+      show(render,L)
 
     vnum = L.vnum
     SX[:vnum] = 0.
