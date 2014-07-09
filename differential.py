@@ -4,8 +4,6 @@
 
 import gtk, gobject
 
-import numpy as np
-
 from numpy import cos, sin, pi, arctan2, sqrt,\
                   square, int, linspace, arange, sum, abs, logical_and,\
                   array, zeros, mean, diff, column_stack, row_stack,\
@@ -291,21 +289,17 @@ def growth(l):
 
     length = (dd[s0]+dd[s1])*0.5
     dot = tx[s0]*tx[s1]+ty[s0]*ty[s1]
-    kappa = 1.-np.abs(dot)
+    kappa = 1.-abs(dot)
 
     if random()<kappa**2 and length>NEARL:
     #if dd>NEARL:
       grow.append(s)
       count += 1
 
+  ## this does not work. not at all..
   #mapping = row_stack([l.SS[k] for k in kk])
-
-  #print kk
-
   #kappa = 1.-np.abs(sum((tx[mapping] * ty[mapping]).squeeze(),axis=1))
-
   #rnd = random(size=(kappa.shape))
-
   #grow = logical_and(rnd<kappa,dd>NEARL).nonzero()[0]
     
   new_vertices = []
