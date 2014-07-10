@@ -30,14 +30,12 @@ PI = pi
 TWOPI = 2.*pi
 
 NMAX = 2*1e8
-SIZE = 1000
+SIZE = 1600
 ONE = 1./SIZE
 
-#UPDATE_NUM = 1 # write image this often
-
 STP = ONE
-FARL  = 20*ONE # ignore nodes beyond this distance
-NEARL = 3*ONE # do not attempt to approach neighbours close than this 
+FARL  = 30*ONE # ignore nodes beyond this distance
+NEARL = 7*ONE # do not attempt to approach neighbours close than this 
 
 MID = 0.5
 INIT_R = 0.0005
@@ -176,7 +174,7 @@ class Line(object):
     xy = column_stack([self.X[:self.vnum],self.Y[:self.vnum]])
     near_inds = self.tree.query_ball_point(xy,r)
 
-    return near_inds
+    return [array(ii,'int') for ii in near_inds]
 
   def _add_segment(self,a,b,connected_to=[]):
 
@@ -263,6 +261,8 @@ def init_circle(l,ix,iy,r,n):
   connected_to.append(first)
   l._add_segment(vv[0],vv[-1],connected_to=connected_to)
 
+
+@profile
 def growth(l):
 
   kvv = row_stack(l.SV.values())
@@ -310,6 +310,7 @@ def growth(l):
   return new_vertices
 
 
+@profile
 def segment_attract(l,sx,sy):
 
   for s,vv in l.SV.iteritems():
@@ -326,14 +327,17 @@ def segment_attract(l,sx,sy):
       sx[vv[1]] -= cos(a)
 
 
-def collision_reject(l,sx,sy):
+@profile
+def collision_reject_org(l,sx,sy):
 
   X = l.X
   Y = l.Y
   near = l.get_all_near_vertices(FARL)
 
-  for k,(x,y,ii) in enumerate(zip(X,Y,near)):
+  k = 0
+  for x,y,iii in zip(X,Y,near):
 
+    ii = iii[iii!=k]
     dx = x - X[ii]
     dy = y - Y[ii]
     dd = sqrt(square(dx)+square(dy))
@@ -341,11 +345,47 @@ def collision_reject(l,sx,sy):
     force = FARL-dd
     a = arctan2(dy,dx)
 
-    sx[k] += sum(cos(a)*force)
-    sy[k] += sum(sin(a)*force)
+    sx[k] += (cos(a)*force).sum()
+    sy[k] += (sin(a)*force).sum()
+
+    k+=1
+
+@profile
+def collision_reject(l,sx,sy):
+
+  X = l.X
+  Y = l.Y
+  near = l.get_all_near_vertices(FARL)
+  nrows = len(near)
+  ncols = max([len(a) for a in near])
+
+  dx = zeros((nrows,ncols,2),'float')
+  force_mask = ones((nrows,ncols),'float')
+
+  for j,ii in enumerate(near):
+
+    ii = ii[ii!=j]
+    lii = len(ii)
+    dx[j,:lii,0] = X[j] - X[ii]
+    dx[j,:lii,1] = Y[j] - Y[ii]
+    force_mask[j,lii:] = 0.
+
+  dd = square(dx[:,:,0])+square(dx[:,:,1])
+  sqrt(dd,dd)
+
+  force = FARL-dd
+  force *= force_mask
+  a = arctan2(dx[:,:,1],dx[:,:,0])
+
+  sx += sum(cos(a)*force,axis=1)
+  sy += sum(sin(a)*force,axis=1)
 
 
 
+
+
+
+@profile
 def main():
 
   L = Line()
@@ -379,16 +419,17 @@ def main():
 
     if not render.steps%10:
 
-      print render.steps
-
       show(render,L)
 
     vnum = L.vnum
     SX[:vnum] = 0.
     SY[:vnum] = 0.
 
-    segment_attract(L,SX[:L.vnum],SY[:vnum])
     collision_reject(L,SX[:L.vnum],SY[:vnum])
+    collision_reject_org(L,SX[:L.vnum],SY[:vnum])
+    SX[:L.vnum]*=0.5
+    SY[:L.vnum]*=0.5
+    segment_attract(L,SX[:L.vnum],SY[:vnum])
 
     SX[:vnum] *= STP
     SY[:vnum] *= STP
@@ -407,7 +448,7 @@ def main():
 
 if __name__ == '__main__' :
 
-  if True:
+  if False:
 
     import pstats, cProfile
     cProfile.run('main()','profile.profile')
