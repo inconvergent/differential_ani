@@ -4,7 +4,7 @@
 
 import gtk, gobject
 
-from numpy import cos, sin, pi, arctan2, sqrt,\
+from numpy import cos, sin, pi, arctan2, sqrt, sort,\
                   square, int, linspace, arange, sum, abs, logical_and,\
                   array, zeros, mean, diff, column_stack, row_stack,\
                   unique, dot, logical_not, ones, concatenate, tile, reshape
@@ -16,7 +16,7 @@ import cairo, Image
 from collections import defaultdict
 from itertools import count
 
-seed(1)
+#seed(1)
 
 
 BACK = [0.1]*3
@@ -30,15 +30,15 @@ PI = pi
 TWOPI = 2.*pi
 
 NMAX = 2*1e8
-SIZE = 1600
+SIZE = 2000
 ONE = 1./SIZE
 
-STP = ONE
-FARL  = 30*ONE # ignore nodes beyond this distance
-NEARL = 7*ONE # do not attempt to approach neighbours close than this 
+STP = ONE*0.4
+FARL  = 60*ONE # ignore nodes beyond this distance
+NEARL = 5*ONE # do not attempt to approach neighbours close than this 
 
 MID = 0.5
-INIT_R = 0.0005
+INIT_R = 0.0001
 INIT_N = 100
 
 
@@ -132,9 +132,6 @@ class Render(object):
     res = self.step()
     self.expose()
     self.steps += 1
-
-    if not self.steps%100:
-      print self.steps
 
     return res
 
@@ -240,7 +237,7 @@ class Line(object):
 
 def init_circle(l,ix,iy,r,n):
 
-  th = arange(n).astype('float')/float(n)*TWOPI
+  th = sort(random(n)*TWOPI)
   xx = ix + cos(th)*r
   yy = iy + sin(th)*r
 
@@ -270,8 +267,8 @@ def growth(l):
   kvvx = l.X[kvv]
   kvvy = l.Y[kvv]
 
-  dx = diff(kvvx,axis=1).flatten()
-  dy = diff(kvvy,axis=1).flatten()
+  dx = diff(kvvx,axis=1).ravel()
+  dy = diff(kvvy,axis=1).ravel()
 
   dd = sqrt(dx*dx+dy*dy)
   tx = dx/dd
@@ -290,16 +287,9 @@ def growth(l):
     dot = tx[s0]*tx[s1]+ty[s0]*ty[s1]
     kappa = 1.-abs(dot)
 
-    if random()<kappa**2 and length>NEARL:
-    #if dd>NEARL:
+    if random()<kappa**2 and length>NEARL*1.1:
       grow.append(s)
       count += 1
-
-  ## this does not work. not at all..
-  #mapping = row_stack([l.SS[k] for k in kk])
-  #kappa = 1.-np.abs(sum((tx[mapping] * ty[mapping]).squeeze(),axis=1))
-  #rnd = random(size=(kappa.shape))
-  #grow = logical_and(rnd<kappa,dd>NEARL).nonzero()[0]
     
   new_vertices = []
   for g in grow:
@@ -325,39 +315,17 @@ def segment_attract(l,sx,sy):
       sx[vv[1]] -= cos(a)
 
 
-#def collision_reject_org(l,sx,sy):
-
-  #X = l.X
-  #Y = l.Y
-  #near = l.get_all_near_vertices(FARL)
-
-  #k = 0
-  #for x,y,iii in zip(X,Y,near):
-
-    #ii = iii[iii!=k]
-    #dx = x - X[ii]
-    #dy = y - Y[ii]
-    #dd = sqrt(square(dx)+square(dy))
-
-    #force = FARL-dd
-    #a = arctan2(dy,dx)
-
-    #sx[k] += (cos(a)*force).sum()
-    #sy[k] += (sin(a)*force).sum()
-
-    #k+=1
-
 def collision_reject(l,sx,sy):
 
   vnum = l.vnum
-  X = l.X[:vnum]
-  Y = l.Y[:vnum]
+  X = reshape(l.X[:vnum],(vnum,1))
+  Y = reshape(l.Y[:vnum],(vnum,1))
   near = l.get_all_near_vertices(FARL)
   nrows = len(near)
   ncols = max([len(a) for a in near])
 
   ind = zeros((nrows,ncols),'int')
-  force_mask = ones((nrows,ncols),'float')
+  xforce_mask = zeros((nrows,ncols),'bool')
 
   for j,ii in enumerate(near):
 
@@ -365,20 +333,21 @@ def collision_reject(l,sx,sy):
     sii.remove(j)
     lii = len(sii)
     ind[j,:lii] = list(sii)
-    force_mask[j,lii:] = 0.
+    xforce_mask[j,lii:] = True
 
-  dx = tile(reshape(X,(vnum,1)),(1,ncols))
-  dy = tile(reshape(Y,(vnum,1)),(1,ncols))
-  dx -= X[ind]
-  dy -= Y[ind]
+  dx = -X[ind,:].squeeze()
+  dy = -Y[ind,:].squeeze()
+  dx += X
+  dy += Y
+
 
   dd = square(dx)+square(dy)
   sqrt(dd,dd)
 
   force = FARL-dd
-  force *= force_mask
-  a = arctan2(dy[:,:],dx[:,:])
+  force[xforce_mask] = 0.
 
+  a = arctan2(dy,dx)
   sx += sum(cos(a)*force,axis=1)
   sy += sum(sin(a)*force,axis=1)
 
@@ -415,9 +384,10 @@ def main():
     new_vertices = growth(L)
     L.update_tree()
 
-    if not render.steps%10:
+    if not render.steps%50:
 
       show(render,L)
+      print 'steps:',render.steps,'vnum:',L.vnum,'snum:',L.snum
 
     vnum = L.vnum
     SX[:vnum] = 0.
@@ -443,7 +413,7 @@ def main():
 
 if __name__ == '__main__' :
 
-  if True:
+  if False:
 
     import pstats, cProfile
     cProfile.run('main()','profile.profile')
