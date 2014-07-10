@@ -7,7 +7,7 @@ import gtk, gobject
 from numpy import cos, sin, pi, arctan2, sqrt,\
                   square, int, linspace, arange, sum, abs, logical_and,\
                   array, zeros, mean, diff, column_stack, row_stack,\
-                  unique, dot, logical_not, ones, concatenate
+                  unique, dot, logical_not, ones, concatenate, tile, reshape
 from numpy.random import normal, randint, random, shuffle, seed
 
 from scipy.spatial import cKDTree
@@ -174,7 +174,7 @@ class Line(object):
     xy = column_stack([self.X[:self.vnum],self.Y[:self.vnum]])
     near_inds = self.tree.query_ball_point(xy,r)
 
-    return [array(ii,'int') for ii in near_inds]
+    return near_inds
 
   def _add_segment(self,a,b,connected_to=[]):
 
@@ -262,7 +262,6 @@ def init_circle(l,ix,iy,r,n):
   l._add_segment(vv[0],vv[-1],connected_to=connected_to)
 
 
-@profile
 def growth(l):
 
   kvv = row_stack(l.SV.values())
@@ -310,7 +309,6 @@ def growth(l):
   return new_vertices
 
 
-@profile
 def segment_attract(l,sx,sy):
 
   for s,vv in l.SV.iteritems():
@@ -327,65 +325,65 @@ def segment_attract(l,sx,sy):
       sx[vv[1]] -= cos(a)
 
 
-@profile
-def collision_reject_org(l,sx,sy):
+#def collision_reject_org(l,sx,sy):
 
-  X = l.X
-  Y = l.Y
-  near = l.get_all_near_vertices(FARL)
+  #X = l.X
+  #Y = l.Y
+  #near = l.get_all_near_vertices(FARL)
 
-  k = 0
-  for x,y,iii in zip(X,Y,near):
+  #k = 0
+  #for x,y,iii in zip(X,Y,near):
 
-    ii = iii[iii!=k]
-    dx = x - X[ii]
-    dy = y - Y[ii]
-    dd = sqrt(square(dx)+square(dy))
+    #ii = iii[iii!=k]
+    #dx = x - X[ii]
+    #dy = y - Y[ii]
+    #dd = sqrt(square(dx)+square(dy))
 
-    force = FARL-dd
-    a = arctan2(dy,dx)
+    #force = FARL-dd
+    #a = arctan2(dy,dx)
 
-    sx[k] += (cos(a)*force).sum()
-    sy[k] += (sin(a)*force).sum()
+    #sx[k] += (cos(a)*force).sum()
+    #sy[k] += (sin(a)*force).sum()
 
-    k+=1
+    #k+=1
 
-@profile
 def collision_reject(l,sx,sy):
 
-  X = l.X
-  Y = l.Y
+  vnum = l.vnum
+  X = l.X[:vnum]
+  Y = l.Y[:vnum]
   near = l.get_all_near_vertices(FARL)
   nrows = len(near)
   ncols = max([len(a) for a in near])
 
-  dx = zeros((nrows,ncols,2),'float')
+  ind = zeros((nrows,ncols),'int')
   force_mask = ones((nrows,ncols),'float')
 
   for j,ii in enumerate(near):
 
-    ii = ii[ii!=j]
-    lii = len(ii)
-    dx[j,:lii,0] = X[j] - X[ii]
-    dx[j,:lii,1] = Y[j] - Y[ii]
+    sii = set(ii)
+    sii.remove(j)
+    lii = len(sii)
+    ind[j,:lii] = list(sii)
     force_mask[j,lii:] = 0.
 
-  dd = square(dx[:,:,0])+square(dx[:,:,1])
+  dx = tile(reshape(X,(vnum,1)),(1,ncols))
+  dy = tile(reshape(Y,(vnum,1)),(1,ncols))
+  dx -= X[ind]
+  dy -= Y[ind]
+
+  dd = square(dx)+square(dy)
   sqrt(dd,dd)
 
   force = FARL-dd
   force *= force_mask
-  a = arctan2(dx[:,:,1],dx[:,:,0])
+  a = arctan2(dy[:,:],dx[:,:])
 
   sx += sum(cos(a)*force,axis=1)
   sy += sum(sin(a)*force,axis=1)
 
 
 
-
-
-
-@profile
 def main():
 
   L = Line()
@@ -425,11 +423,8 @@ def main():
     SX[:vnum] = 0.
     SY[:vnum] = 0.
 
-    collision_reject(L,SX[:L.vnum],SY[:vnum])
-    collision_reject_org(L,SX[:L.vnum],SY[:vnum])
-    SX[:L.vnum]*=0.5
-    SY[:L.vnum]*=0.5
     segment_attract(L,SX[:L.vnum],SY[:vnum])
+    collision_reject(L,SX[:L.vnum],SY[:vnum])
 
     SX[:vnum] *= STP
     SY[:vnum] *= STP
@@ -448,7 +443,7 @@ def main():
 
 if __name__ == '__main__' :
 
-  if False:
+  if True:
 
     import pstats, cProfile
     cProfile.run('main()','profile.profile')

@@ -4,3 +4,5 @@
 *.pyc
 img/*
 profile.profile
+kernprof.py
+*.lprof
