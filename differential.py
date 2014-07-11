@@ -16,8 +16,6 @@ import cairo, Image
 from collections import defaultdict
 from itertools import count
 
-#seed(1)
-
 
 BACK = [0.1]*3
 FRONT = [0.8,0.8,0.8,0.9]
@@ -30,16 +28,18 @@ PI = pi
 TWOPI = 2.*pi
 
 NMAX = 2*1e8
-SIZE = 2000
+SIZE = 1000
 ONE = 1./SIZE
 
-STP = ONE*0.4
-FARL  = 60*ONE # ignore nodes beyond this distance
-NEARL = 5*ONE # do not attempt to approach neighbours close than this 
+STP = ONE*0.9
+FARL  = 40*ONE
+NEARL = 5*ONE
 
 MID = 0.5
 INIT_R = 0.0001
 INIT_N = 100
+
+RENDER_ITT = 10 # redraw this often
 
 
 
@@ -384,7 +384,7 @@ def main():
     new_vertices = growth(L)
     L.update_tree()
 
-    if not render.steps%50:
+    if not render.steps%RENDER_ITT:
 
       show(render,L)
       print 'steps:',render.steps,'vnum:',L.vnum,'snum:',L.snum
