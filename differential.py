@@ -141,8 +141,7 @@ class Line(object):
 
   def __init__(self):
 
-    self.X = zeros(NMAX,'float')
-    self.Y = zeros(NMAX,'float')
+    self.X = zeros((NMAX,2),'float')
     self.SV = {}
     self.SS = {}
 
@@ -150,11 +149,10 @@ class Line(object):
     self.snum = 0
     self.sind = 0
 
-  def _add_vertex(self,x,y):
+  def _add_vertex(self,x):
 
     vnum = self.vnum
-    self.X[vnum] = x
-    self.Y[vnum] = y
+    self.X[vnum,:] = x
 
     self.vnum += 1
     return self.vnum-1
@@ -163,13 +161,11 @@ class Line(object):
 
     vnum = self.vnum
 
-    xy = column_stack([self.X[:vnum],self.Y[:vnum]])
-    self.tree = cKDTree(xy)
+    self.tree = cKDTree(self.X[:vnum,:])
 
   def get_all_near_vertices(self,r):
 
-    xy = column_stack([self.X[:self.vnum],self.Y[:self.vnum]])
-    near_inds = self.tree.query_ball_point(xy,r)
+    near_inds = self.tree.query_ball_point(self.X[:self.vnum,:],r)
 
     return near_inds
 
@@ -209,10 +205,11 @@ class Line(object):
   def split_segment(self,a):
 
     vv = self.SV[a]
-    midx = (self.X[vv[1]] + self.X[vv[0]])*0.5
-    midy = (self.Y[vv[1]] + self.Y[vv[0]])*0.5
+    midx = (self.X[vv[1],0] + self.X[vv[0],0])*0.5
+    midy = (self.X[vv[1],1] + self.X[vv[0],1])*0.5
+    #TODO: improve
 
-    newv = self._add_vertex(midx,midy)
+    newv = self._add_vertex([midx,midy])
 
     connected_to_a = self.SS[a]
     connected_to_b = []
@@ -238,12 +235,11 @@ class Line(object):
 def init_circle(l,ix,iy,r,n):
 
   th = sort(random(n)*TWOPI)
-  xx = ix + cos(th)*r
-  yy = iy + sin(th)*r
+  xx = column_stack( (ix+cos(th)*r, iy+sin(th)*r) )
 
   vv = []
-  for x,y in zip(xx,yy):
-    vv.append(l._add_vertex(x,y))
+  for x in xx:
+    vv.append(l._add_vertex(x))
 
   connected_to = []
   
@@ -264,8 +260,8 @@ def growth(l):
   kvv = row_stack(l.SV.values())
   k_mapping = {k:i for (i,k) in enumerate(l.SV.keys())}
 
-  kvvx = l.X[kvv]
-  kvvy = l.Y[kvv]
+  kvvx = l.X[kvv,0]
+  kvvy = l.X[kvv,1]
 
   dx = diff(kvvx,axis=1).ravel()
   dy = diff(kvvy,axis=1).ravel()
@@ -299,27 +295,27 @@ def growth(l):
   return new_vertices
 
 
-def segment_attract(l,sx,sy):
+def segment_attract(l,sx):
 
   for s,vv in l.SV.iteritems():
 
-    dx = l.X[vv[1]] - l.X[vv[0]]
-    dy = l.Y[vv[1]] - l.Y[vv[0]]
+    dx = l.X[vv[1],0] - l.X[vv[0],0]
+    dy = l.X[vv[1],1] - l.X[vv[0],1]
     dd = sqrt(dx*dx+dy*dy)
     a = arctan2(dy,dx)
 
     if dd>NEARL:
-      sx[vv[0]] += cos(a)
-      sy[vv[0]] += sin(a)
-      sy[vv[1]] -= sin(a)
-      sx[vv[1]] -= cos(a)
+      sx[vv[0],0] += cos(a)
+      sx[vv[0],1] += sin(a)
+      sx[vv[1],1] -= sin(a)
+      sx[vv[1],0] -= cos(a)
 
 
-def collision_reject(l,sx,sy):
+def collision_reject(l,sx):
 
   vnum = l.vnum
-  X = reshape(l.X[:vnum],(vnum,1))
-  Y = reshape(l.Y[:vnum],(vnum,1))
+  X = reshape(l.X[:vnum,0],(vnum,1))
+  Y = reshape(l.X[:vnum,1],(vnum,1))
   near = l.get_all_near_vertices(FARL)
   nrows = len(near)
   ncols = max([len(a) for a in near])
@@ -348,8 +344,7 @@ def collision_reject(l,sx,sy):
   force[xforce_mask] = 0.
 
   a = arctan2(dy,dx)
-  sx += sum(cos(a)*force,axis=1)
-  sy += sum(sin(a)*force,axis=1)
+  sx += column_stack( (sum(cos(a)*force,axis=1), sum(sin(a)*force,axis=1)) )
 
 
 
@@ -360,8 +355,7 @@ def main():
 
   init_circle(L,MID,MID,INIT_R,INIT_N)
 
-  SX = zeros(NMAX,'float')
-  SY = zeros(NMAX,'float')
+  SX = zeros((NMAX,2),'float')
 
 
   def show(render,l):
@@ -370,13 +364,8 @@ def main():
     render.ctx.set_source_rgba(*FRONT)
     render.ctx.set_line_width(ONE*2)
     for s,vv in l.SV.iteritems():
-      render.line(l.X[vv[0]],l.Y[vv[0]],
-                  l.X[vv[1]],l.Y[vv[1]])
-
-    #render.ctx.set_source_rgba(*CONTRASTA)
-    #vnum = l.vnum
-    #render.circles(l.X[:vnum],l.Y[:vnum],
-                   #ones(vnum,'float')*ONE*0.5)
+      render.line(l.X[vv[0],0],l.X[vv[0],1],
+                  l.X[vv[1],0],l.X[vv[1],1])
 
 
   def step():
@@ -390,17 +379,13 @@ def main():
       print 'steps:',render.steps,'vnum:',L.vnum,'snum:',L.snum
 
     vnum = L.vnum
-    SX[:vnum] = 0.
-    SY[:vnum] = 0.
+    SX[:vnum,:] = 0.
 
-    segment_attract(L,SX[:L.vnum],SY[:vnum])
-    collision_reject(L,SX[:L.vnum],SY[:vnum])
+    segment_attract(L,SX[:L.vnum,:])
+    collision_reject(L,SX[:L.vnum,:])
 
-    SX[:vnum] *= STP
-    SY[:vnum] *= STP
-
-    L.X[:vnum] += SX[:vnum]
-    L.Y[:vnum] += SY[:vnum]
+    SX[:vnum,:] *= STP
+    L.X[:vnum,:] += SX[:vnum,:]
 
     return True
 
