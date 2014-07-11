@@ -25,6 +25,8 @@ from itertools import count
 
 seed(1)
 
+FNAME = './img/sweep'
+
 
 BACK = [0.1]*3
 FRONT = [0.8,0.8,0.8,0.9]
@@ -37,12 +39,12 @@ PI = pi
 TWOPI = 2.*pi
 
 NMAX = 2*1e8
-SIZE = 1000
+SIZE = 800
 ONE = 1./SIZE
 
-STP = ONE*0.9
+STP = ONE
 FARL  = 40*ONE
-NEARL = 5*ONE
+NEARL = 4*ONE
 
 MID = 0.5
 INIT_R = 0.0001
@@ -158,6 +160,7 @@ class Line(object):
     self.snum = 0
     self.sind = 0
 
+  #@profile
   def _add_vertex(self,x):
 
     vnum = self.vnum
@@ -165,19 +168,22 @@ class Line(object):
 
     self.vnum += 1
     return self.vnum-1
-
+  
+  #@profile
   def update_tree(self):
 
     vnum = self.vnum
 
     self.tree = cKDTree(self.X[:vnum,:])
 
+  #@profile
   def get_all_near_vertices(self,r):
 
     near_inds = self.tree.query_ball_point(self.X[:self.vnum,:],r)
 
     return near_inds
 
+  #@profile
   def _add_segment(self,a,b,connected_to=[]):
 
     for seg in connected_to:
@@ -197,6 +203,7 @@ class Line(object):
     self.snum += 1
     return self.sind-1
 
+  #@profile
   def _delete_segment(self,a):
 
     vv = self.SV[a]
@@ -211,6 +218,7 @@ class Line(object):
 
     return vv
 
+  #@profile
   def split_segment(self,a):
 
     vv = self.SV[a]
@@ -240,7 +248,6 @@ class Line(object):
     return newv, [b,c]
 
 
-
 def init_circle(l,ix,iy,r,n):
 
   th = sort(random(n)*TWOPI)
@@ -263,7 +270,7 @@ def init_circle(l,ix,iy,r,n):
   connected_to.append(first)
   l._add_segment(vv[0],vv[-1],connected_to=connected_to)
 
-
+#@profile
 def growth(l):
 
   kvv,dx,dd = segment_lengths(l)
@@ -293,6 +300,7 @@ def growth(l):
 
   return new_vertices
 
+#@profile
 def segment_lengths(l):
 
   kvv = row_stack(l.SV.values())
@@ -307,6 +315,7 @@ def segment_lengths(l):
   return kvv,dx,dd
 
 
+#@profile
 def segment_attract(l,sx,nearl):
 
   kvv,dx,dd = segment_lengths(l)
@@ -315,7 +324,7 @@ def segment_attract(l,sx,nearl):
   sx[kvv[mask,0],:] += dx[mask,:]
   sx[kvv[mask,1],:] -= dx[mask,:]
 
-
+#@profile
 def collision_reject(l,sx,farl):
 
   vnum = l.vnum
@@ -361,6 +370,7 @@ def collision_reject(l,sx,farl):
   sx[:,1] += npsum(dy,axis=1)
 
 
+#@profile
 def main():
 
   L = Line()
@@ -371,6 +381,7 @@ def main():
   SX = zeros((NMAX,2),'float')
 
 
+  #@profile
   def show(render,l):
 
     render.clear_canvas()
@@ -381,6 +392,7 @@ def main():
                   l.X[vv[1],0],l.X[vv[1],1])
 
 
+  #@profile
   def step():
 
     new_vertices = growth(L)
@@ -390,6 +402,9 @@ def main():
 
       show(render,L)
       print 'steps:',render.steps,'vnum:',L.vnum,'snum:',L.snum
+      
+      #fn = '{:s}_nearl{:0.0f}_itt{:07d}.png'.format(FNAME,FARL/ONE,render.steps)
+      #render.sur.write_to_png(fn)
 
     vnum = L.vnum
     SX[:vnum,:] = 0.
@@ -411,7 +426,7 @@ def main():
 
 if __name__ == '__main__' :
 
-  if True:
+  if False:
 
     import pstats, cProfile
     cProfile.run('main()','profile.profile')
