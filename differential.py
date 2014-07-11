@@ -330,7 +330,7 @@ def collision_reject(l,sx,farl):
   vnum = l.vnum
   X = reshape(l.X[:vnum,0],(vnum,1))
   Y = reshape(l.X[:vnum,1],(vnum,1))
-  near = l.get_all_near_vertices(FARL)
+  near = l.get_all_near_vertices(farl)
   nrows = len(near)
   ncols = npmax([len(a) for a in near])
 
