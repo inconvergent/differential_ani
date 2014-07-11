@@ -23,9 +23,9 @@ import cairo, Image
 from collections import defaultdict
 from itertools import count
 
-seed(1)
+seed(3)
 
-FNAME = './img/sweep'
+FNAME = './img/a_sweep'
 
 
 BACK = [0.1]*3
@@ -39,18 +39,18 @@ PI = pi
 TWOPI = 2.*pi
 
 NMAX = 2*1e8
-SIZE = 800
+SIZE = 2000
 ONE = 1./SIZE
 
 STP = ONE
-FARL  = 40*ONE
-NEARL = 4*ONE
+FARL  = 20*ONE
+NEARL = 3*ONE
 
 MID = 0.5
 INIT_R = 0.0001
 INIT_N = 100
 
-RENDER_ITT = 10 # redraw this often
+RENDER_ITT = 1000 # redraw this often
 
 
 
@@ -154,6 +154,7 @@ class Line(object):
 
     self.X = zeros((NMAX,2),'float')
     self.SV = {}
+    #self.SV2 = zeros()
     self.SS = {}
 
     self.vnum = 0
@@ -289,7 +290,7 @@ def growth(l):
     dot = dx[s0,0]*dx[s1,0]+dx[s0,1]*dx[s1,1]
     kappa = 1.-npabs(dot)
 
-    if random()<kappa**2 and length>NEARL*1.1:
+    if random()<kappa**0.5 and length>NEARL*1.1:
       grow.append(s)
       count += 1
     
@@ -403,8 +404,8 @@ def main():
       show(render,L)
       print 'steps:',render.steps,'vnum:',L.vnum,'snum:',L.snum
       
-      #fn = '{:s}_nearl{:0.0f}_itt{:07d}.png'.format(FNAME,FARL/ONE,render.steps)
-      #render.sur.write_to_png(fn)
+      fn = '{:s}_nearl{:0.0f}_itt{:07d}.png'.format(FNAME,FARL/ONE,render.steps)
+      render.sur.write_to_png(fn)
 
     vnum = L.vnum
     SX[:vnum,:] = 0.
