@@ -336,16 +336,23 @@ def collision_reject(l,sx):
   dx += X
   dy += Y
 
-
   dd = square(dx)+square(dy)
   sqrt(dd,dd)
 
+  dx /= dd
+  dy /= dd
+
   force = FARL-dd
+
+  dx[xforce_mask] = 0.
+  dy[xforce_mask] = 0.
+
   force[xforce_mask] = 0.
+  
+  dx *= force
+  dy *= force
 
-  a = arctan2(dy,dx)
-  sx += column_stack( (sum(cos(a)*force,axis=1), sum(sin(a)*force,axis=1)) )
-
+  sx += column_stack( (sum(dx,axis=1), sum(dy,axis=1)) )
 
 
 def main():
@@ -398,7 +405,7 @@ def main():
 
 if __name__ == '__main__' :
 
-  if False:
+  if True:
 
     import pstats, cProfile
     cProfile.run('main()','profile.profile')
