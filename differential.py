@@ -2,19 +2,28 @@
 # -*- coding: utf-8 -*-
 
 
+
 import gtk, gobject
 
-from numpy import cos, sin, pi, arctan2, sqrt, sort,\
-                  square, int, linspace, arange, sum, abs, logical_and,\
-                  array, zeros, mean, diff, column_stack, row_stack,\
-                  unique, dot, logical_not, ones, concatenate, tile, reshape
-from numpy.random import normal, randint, random, shuffle, seed
+from numpy import cos, sin, pi, sqrt, sort,\
+                  square, linspace, arange, logical_and,\
+                  array, zeros, diff, column_stack, row_stack,\
+                  unique, logical_not, ones, concatenate, reshape
+
+from numpy import max as npmax
+from numpy import min as npmin
+from numpy import abs as npabs
+from numpy import sum as npsum
+
+from numpy.random import random, seed
 
 from scipy.spatial import cKDTree
 
 import cairo, Image
 from collections import defaultdict
 from itertools import count
+
+seed(1)
 
 
 BACK = [0.1]*3
@@ -257,18 +266,8 @@ def init_circle(l,ix,iy,r,n):
 
 def growth(l):
 
-  kvv = row_stack(l.SV.values())
+  kvv,dx,dd = segment_lengths(l)
   k_mapping = {k:i for (i,k) in enumerate(l.SV.keys())}
-
-  kvvx = l.X[kvv,0]
-  kvvy = l.X[kvv,1]
-
-  dx = diff(kvvx,axis=1).ravel()
-  dy = diff(kvvy,axis=1).ravel()
-
-  dd = sqrt(dx*dx+dy*dy)
-  tx = dx/dd
-  ty = dy/dd
 
   count = 0
   grow = []
@@ -280,8 +279,8 @@ def growth(l):
     s1 = k_mapping[ss[1]]
 
     length = (dd[s0]+dd[s1])*0.5
-    dot = tx[s0]*tx[s1]+ty[s0]*ty[s1]
-    kappa = 1.-abs(dot)
+    dot = dx[s0,0]*dx[s1,0]+dx[s0,1]*dx[s1,1]
+    kappa = 1.-npabs(dot)
 
     if random()<kappa**2 and length>NEARL*1.1:
       grow.append(s)
@@ -294,31 +293,37 @@ def growth(l):
 
   return new_vertices
 
+def segment_lengths(l):
 
-def segment_attract(l,sx):
+  kvv = row_stack(l.SV.values())
 
-  for s,vv in l.SV.iteritems():
+  dx = diff(l.X[kvv,:],axis=1).squeeze()
+  dd = square(dx)
+  dd = npsum(dd,axis=1)
+  sqrt(dd,dd)
 
-    dx = l.X[vv[1],0] - l.X[vv[0],0]
-    dy = l.X[vv[1],1] - l.X[vv[0],1]
-    dd = sqrt(dx*dx+dy*dy)
-    a = arctan2(dy,dx)
-
-    if dd>NEARL:
-      sx[vv[0],0] += cos(a)
-      sx[vv[0],1] += sin(a)
-      sx[vv[1],1] -= sin(a)
-      sx[vv[1],0] -= cos(a)
+  dx /= reshape(dd,(l.snum,1))
+  
+  return kvv,dx,dd
 
 
-def collision_reject(l,sx):
+def segment_attract(l,sx,nearl):
+
+  kvv,dx,dd = segment_lengths(l)
+
+  mask = dd>nearl
+  sx[kvv[mask,0],:] += dx[mask,:]
+  sx[kvv[mask,1],:] -= dx[mask,:]
+
+
+def collision_reject(l,sx,farl):
 
   vnum = l.vnum
   X = reshape(l.X[:vnum,0],(vnum,1))
   Y = reshape(l.X[:vnum,1],(vnum,1))
   near = l.get_all_near_vertices(FARL)
   nrows = len(near)
-  ncols = max([len(a) for a in near])
+  ncols = npmax([len(a) for a in near])
 
   ind = zeros((nrows,ncols),'int')
   xforce_mask = zeros((nrows,ncols),'bool')
@@ -342,7 +347,7 @@ def collision_reject(l,sx):
   dx /= dd
   dy /= dd
 
-  force = FARL-dd
+  force = farl-dd
 
   dx[xforce_mask] = 0.
   dy[xforce_mask] = 0.
@@ -352,7 +357,8 @@ def collision_reject(l,sx):
   dx *= force
   dy *= force
 
-  sx += column_stack( (sum(dx,axis=1), sum(dy,axis=1)) )
+  sx[:,0] += npsum(dx,axis=1)
+  sx[:,1] += npsum(dy,axis=1)
 
 
 def main():
@@ -388,8 +394,8 @@ def main():
     vnum = L.vnum
     SX[:vnum,:] = 0.
 
-    segment_attract(L,SX[:L.vnum,:])
-    collision_reject(L,SX[:L.vnum,:])
+    segment_attract(L,SX[:L.vnum,:],NEARL)
+    collision_reject(L,SX[:L.vnum,:],FARL)
 
     SX[:vnum,:] *= STP
     L.X[:vnum,:] += SX[:vnum,:]
