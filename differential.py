@@ -23,6 +23,8 @@ import cairo, Image
 from collections import defaultdict
 from itertools import count
 
+from speedup.speedup import collision_reject as pyx_collision_reject
+
 seed(3)
 
 FNAME = './img/b_sweep'
@@ -51,7 +53,6 @@ INIT_R = 0.0001
 INIT_N = 100
 
 RENDER_ITT = 100 # redraw this often
-
 
 
 class Render(object):
@@ -412,7 +413,7 @@ def main():
     SX[:vnum,:] = 0.
 
     segment_attract(L,SX[:L.vnum,:],NEARL)
-    collision_reject(L,SX[:L.vnum,:],FARL)
+    pyx_collision_reject(L,SX[:L.vnum,:],FARL)
 
     SX[:vnum,:] *= STP
     L.X[:vnum,:] += SX[:vnum,:]
@@ -428,7 +429,7 @@ def main():
 
 if __name__ == '__main__' :
 
-  if False:
+  if True:
 
     import pstats, cProfile
     cProfile.run('main()','profile.profile')

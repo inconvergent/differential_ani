@@ -3,9 +3,9 @@
 *.swp
 *.pyc
 img/*
-profile.profile
+*.profile
+*.c
 kernprof.py
 *.lprof
 build/*
 *.so
-
