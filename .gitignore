@@ -6,3 +6,6 @@ img/*
 profile.profile
 kernprof.py
 *.lprof
+build/*
+*.so
+
