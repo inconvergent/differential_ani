@@ -25,7 +25,7 @@ from itertools import count
 
 seed(3)
 
-FNAME = './img/a_sweep'
+FNAME = './img/b_sweep'
 
 
 BACK = [0.1]*3
@@ -39,7 +39,7 @@ PI = pi
 TWOPI = 2.*pi
 
 NMAX = 2*1e8
-SIZE = 2000
+SIZE = 1000
 ONE = 1./SIZE
 
 STP = ONE
@@ -50,7 +50,7 @@ MID = 0.5
 INIT_R = 0.0001
 INIT_N = 100
 
-RENDER_ITT = 1000 # redraw this often
+RENDER_ITT = 100 # redraw this often
 
 
 
@@ -153,8 +153,8 @@ class Line(object):
   def __init__(self):
 
     self.X = zeros((NMAX,2),'float')
-    self.SV = {}
-    #self.SV2 = zeros()
+    self.SV = zeros((NMAX,2),'int')
+    self.SVMASK = zeros(NMAX,'bool')
     self.SS = {}
 
     self.vnum = 0
@@ -199,7 +199,8 @@ class Line(object):
       else:
         self.SS[self.sind] = [seg]
 
-    self.SV[self.sind] = [a,b]
+    self.SV[self.sind,:] = [a,b]
+    self.SVMASK[self.sind] = True
     self.sind += 1
     self.snum += 1
     return self.sind-1
@@ -207,8 +208,8 @@ class Line(object):
   #@profile
   def _delete_segment(self,a):
 
-    vv = self.SV[a]
-    del(self.SV[a])
+    vv = self.SV[a,:]
+    self.SVMASK[a] = False
     self.snum -= 1
 
     connected_to = self.SS[a]
@@ -222,7 +223,7 @@ class Line(object):
   #@profile
   def split_segment(self,a):
 
-    vv = self.SV[a]
+    vv = self.SV[a,:]
     midx = (self.X[vv[1],0] + self.X[vv[0],0])*0.5
     midy = (self.X[vv[1],1] + self.X[vv[0],1])*0.5
     #TODO: improve
@@ -235,9 +236,9 @@ class Line(object):
 
     for seg in connected_to_a:
 
-      if vv[0] in self.SV[seg]:
+      if vv[0] in self.SV[seg,:]:
         connected_to_b.append(seg)
-      if vv[1] in self.SV[seg]:
+      if vv[1] in self.SV[seg,:]:
         connected_to_c.append(seg)
 
     b = self._add_segment(vv[0],newv,connected_to=connected_to_b)
@@ -275,11 +276,13 @@ def init_circle(l,ix,iy,r,n):
 def growth(l):
 
   kvv,dx,dd = segment_lengths(l)
-  k_mapping = {k:i for (i,k) in enumerate(l.SV.keys())}
+  alive_segments = l.SVMASK[:l.sind].nonzero()[0]
+  
+  k_mapping = {k:i for (i,k) in enumerate(alive_segments)}
 
   count = 0
   grow = []
-  for s in l.SV.keys():
+  for s in alive_segments:
 
     ss = l.SS[s]
 
@@ -304,8 +307,7 @@ def growth(l):
 #@profile
 def segment_lengths(l):
 
-  kvv = row_stack(l.SV.values())
-
+  kvv = l.SV[:l.sind,:][l.SVMASK[:l.sind],:]
   dx = diff(l.X[kvv,:],axis=1).squeeze()
   dd = square(dx)
   dd = npsum(dd,axis=1)
@@ -333,17 +335,15 @@ def collision_reject(l,sx,farl):
   Y = reshape(l.X[:vnum,1],(vnum,1))
   near = l.get_all_near_vertices(farl)
   nrows = len(near)
-  ncols = npmax([len(a) for a in near])
+  n_near = [len(a) for a in near]
+  ncols = npmax(n_near)
 
   ind = zeros((nrows,ncols),'int')
   xforce_mask = zeros((nrows,ncols),'bool')
 
-  for j,ii in enumerate(near):
+  for j,(ii,lii) in enumerate(zip(near,n_near)):
 
-    sii = set(ii)
-    sii.remove(j)
-    lii = len(sii)
-    ind[j,:lii] = list(sii)
+    ind[j,:lii] = ii
     xforce_mask[j,lii:] = True
 
   dx = -X[ind,:].squeeze()
@@ -359,6 +359,7 @@ def collision_reject(l,sx,farl):
 
   force = farl-dd
 
+  xforce_mask[dd == 0.] = True
   dx[xforce_mask] = 0.
   dy[xforce_mask] = 0.
 
@@ -388,7 +389,7 @@ def main():
     render.clear_canvas()
     render.ctx.set_source_rgba(*FRONT)
     render.ctx.set_line_width(ONE*2)
-    for s,vv in l.SV.iteritems():
+    for vv in l.SV[:l.sind,:][l.SVMASK[:l.sind],:]:
       render.line(l.X[vv[0],0],l.X[vv[0],1],
                   l.X[vv[1],0],l.X[vv[1],1])
 
