@@ -23,7 +23,7 @@ import cairo, Image
 from collections import defaultdict
 from itertools import count
 
-from speedup.speedup import collision_reject as pyx_collision_reject
+from speedup.speedup import pyx_collision_reject
 
 seed(3)
 
@@ -413,6 +413,7 @@ def main():
     SX[:vnum,:] = 0.
 
     segment_attract(L,SX[:L.vnum,:],NEARL)
+    #collision_reject(L,SX[:L.vnum,:],FARL)
     pyx_collision_reject(L,SX[:L.vnum,:],FARL)
 
     SX[:vnum,:] *= STP

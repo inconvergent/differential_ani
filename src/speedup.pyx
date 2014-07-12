@@ -1,56 +1,68 @@
 #!/usr/bin/python
 
-from numpy import cos, sin, pi, sqrt, sort,\
-                  square, linspace, arange, logical_and,\
-                  array, zeros, diff, column_stack, row_stack,\
-                  unique, logical_not, ones, concatenate, reshape
+from __future__ import division
 
-from numpy import max as npmax
-from numpy import min as npmin
-from numpy import abs as npabs
-from numpy import sum as npsum
+import numpy as np
+cimport numpy as np
+cimport cython
 
 
-def collision_reject(l,sx,farl):
+DINT = np.int
+ctypedef np.int_t DINT_t
+DFLOAT = np.float
+ctypedef np.float_t DFLOAT_t
 
-  vnum = l.vnum
-  X = reshape(l.X[:vnum,0],(vnum,1))
-  Y = reshape(l.X[:vnum,1],(vnum,1))
-  near = l.get_all_near_vertices(farl)
-  nrows = len(near)
-  n_near = [len(a) for a in near]
-  ncols = npmax(n_near)
+@cython.wraparound(False)
+@cython.boundscheck(False)
+def pyx_collision_reject(l,np.ndarray[DFLOAT_t,ndim=2] sx,farl):
+#def pyx_collision_reject(l,double[:,::1] sx,farl):
 
-  ind = zeros((nrows,ncols),'int')
-  xforce_mask = zeros((nrows,ncols),'bool')
+  cdef DINT_t vnum = l.vnum
+  cdef DFLOAT_t cfarl = farl
 
-  for j,(ii,lii) in enumerate(zip(near,n_near)):
+  cdef np.ndarray[DFLOAT_t,ndim=1] X = l.X[:vnum,0]
+  cdef np.ndarray[DFLOAT_t,ndim=1] Y = l.X[:vnum,1]
 
-    ind[j,:lii] = ii
-    xforce_mask[j,lii:] = True
+  near = l.get_all_near_vertices(cfarl)
 
-  dx = -X[ind,:].squeeze()
-  dy = -Y[ind,:].squeeze()
-  dx += X
-  dy += Y
+  cdef np.ndarray[DINT_t,ndim=1] n_near = np.array([len(a) for a in near],DINT)
+  cdef DINT_t ncols = np.max(n_near)
 
-  dd = square(dx)+square(dy)
-  sqrt(dd,dd)
+  cdef DINT_t k
+  cdef DINT_t c
+  cdef DINT_t j
+  cdef DINT_t ind
 
-  dx /= dd
-  dy /= dd
+  cdef DFLOAT_t x
+  cdef DFLOAT_t y
+  cdef DFLOAT_t dx
+  cdef DFLOAT_t dy
+  cdef DFLOAT_t dd
+  cdef DFLOAT_t ddsquare
+  cdef DFLOAT_t force
+  cdef DFLOAT_t resx
+  cdef DFLOAT_t resy
 
-  force = farl-dd
+  for j in range(vnum):
+    k = n_near[j]
+    resx = 0.
+    resy = 0.
+    x = -X[j]
+    y = -Y[j]
+    for c in range(k):
+      ind = <unsigned int>near[j][c]
+      if ind == k:
+        continue
+      dx = x+X[ind]
+      dy = y+Y[ind]
+      ddsquare = dx*dx+dy*dy
+      if ddsquare <= 0.:
+        continue
+      dd = ddsquare**0.5
+      force = (cfarl-dd)/dd
+      resx -= dx*force
+      resy -= dy*force
 
-  xforce_mask[dd == 0.] = True
-  dx[xforce_mask] = 0.
-  dy[xforce_mask] = 0.
-
-  force[xforce_mask] = 0.
-  
-  dx *= force
-  dy *= force
-
-  sx[:,0] += npsum(dx,axis=1)
-  sx[:,1] += npsum(dy,axis=1)
+    sx[j,0] += resx
+    sx[j,1] += resy
 
