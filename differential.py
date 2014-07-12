@@ -24,6 +24,7 @@ from collections import defaultdict
 from itertools import count
 
 from speedup.speedup import pyx_collision_reject
+from speedup.speedup import pyx_growth
 
 seed(3)
 
@@ -155,7 +156,7 @@ class Line(object):
 
     self.X = zeros((NMAX,2),'float')
     self.SV = zeros((NMAX,2),'int')
-    self.SVMASK = zeros(NMAX,'bool')
+    self.SVMASK = zeros(NMAX,'int')
     self.SS = {}
 
     self.vnum = 0
@@ -201,7 +202,7 @@ class Line(object):
         self.SS[self.sind] = [seg]
 
     self.SV[self.sind,:] = [a,b]
-    self.SVMASK[self.sind] = True
+    self.SVMASK[self.sind] = 1
     self.sind += 1
     self.snum += 1
     return self.sind-1
@@ -210,7 +211,7 @@ class Line(object):
   def _delete_segment(self,a):
 
     vv = self.SV[a,:]
-    self.SVMASK[a] = False
+    self.SVMASK[a] = 0
     self.snum -= 1
 
     connected_to = self.SS[a]
@@ -274,7 +275,7 @@ def init_circle(l,ix,iy,r,n):
   l._add_segment(vv[0],vv[-1],connected_to=connected_to)
 
 #@profile
-def growth(l):
+def growth(l,near_limit):
 
   kvv,dx,dd = segment_lengths(l)
   alive_segments = l.SVMASK[:l.sind].nonzero()[0]
@@ -294,7 +295,7 @@ def growth(l):
     dot = dx[s0,0]*dx[s1,0]+dx[s0,1]*dx[s1,1]
     kappa = 1.-npabs(dot)
 
-    if random()<kappa**0.5 and length>NEARL*1.1:
+    if random()<kappa**0.5 and length>near_limit:
       grow.append(s)
       count += 1
     
@@ -308,7 +309,7 @@ def growth(l):
 #@profile
 def segment_lengths(l):
 
-  kvv = l.SV[:l.sind,:][l.SVMASK[:l.sind],:]
+  kvv = l.SV[:l.sind,:][l.SVMASK[:l.sind]>0,:]
   dx = diff(l.X[kvv,:],axis=1).squeeze()
   dd = square(dx)
   dd = npsum(dd,axis=1)
@@ -390,7 +391,7 @@ def main():
     render.clear_canvas()
     render.ctx.set_source_rgba(*FRONT)
     render.ctx.set_line_width(ONE*2)
-    for vv in l.SV[:l.sind,:][l.SVMASK[:l.sind],:]:
+    for vv in l.SV[:l.sind,:][l.SVMASK[:l.sind]>0,:]:
       render.line(l.X[vv[0],0],l.X[vv[0],1],
                   l.X[vv[1],0],l.X[vv[1],1])
 
@@ -398,7 +399,9 @@ def main():
   #@profile
   def step():
 
-    new_vertices = growth(L)
+    #new_vertices = growth(L,NEARL*1.1)
+    new_vertices = pyx_growth(L,NEARL*1.1)
+
     L.update_tree()
 
     if not render.steps%RENDER_ITT:
@@ -413,6 +416,7 @@ def main():
     SX[:vnum,:] = 0.
 
     segment_attract(L,SX[:L.vnum,:],NEARL)
+
     #collision_reject(L,SX[:L.vnum,:],FARL)
     pyx_collision_reject(L,SX[:L.vnum,:],FARL)
 
