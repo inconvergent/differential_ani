@@ -2,28 +2,25 @@
 # -*- coding: utf-8 -*-
 
 
+import cairo, Image
 import gtk, gobject
 
 from numpy import cos, sin, pi, sqrt, sort,\
-                  square, linspace, arange, logical_and,\
+                  square, linspace, arange, logical_and, concatenate,\
                   array, zeros, diff, column_stack, row_stack,\
-                  unique, logical_not, ones, concatenate, reshape
+                  logical_not, ones, reshape
 
 from numpy import max as npmax
 from numpy import min as npmin
 from numpy import abs as npabs
 from numpy import sum as npsum
-
 from numpy.random import random, seed
 
-from scipy.spatial import cKDTree
-
-import cairo, Image
-from collections import defaultdict
 from itertools import count
 
-#from speedup.speedup import pyx_collision_reject
-#from speedup.speedup import pyx_growth
+from speedup.speedup import pyx_collision_reject
+from speedup.speedup import pyx_growth
+from speedup.speedup import pyx_near_zone_inds
 
 seed(3)
 
@@ -44,15 +41,20 @@ NMAX = 2*1e8
 SIZE = 2000
 ONE = 1./SIZE
 
-STP = ONE*0.9
-FARL  = 40.*ONE
+STP = ONE
+FARL = 20.*ONE
 NEARL = 3.*ONE
+GROW_NEAR_LIMIT = 1.1*NEARL
 
 MID = 0.5
 INIT_R = 0.0001
 INIT_N = 100
 
-RENDER_ITT = 1000 # redraw this often
+RENDER_ITT = 100 # redraw this often
+
+ZONEWIDTH = FARL/ONE
+ZONES = int(SIZE/ZONEWIDTH)
+
 
 
 class Render(object):
@@ -162,23 +164,40 @@ class Line(object):
     self.snum = 0
     self.sind = 0
 
+    self.ZV = [[] for i in xrange((ZONES+2)**2)]
+    print len(self.ZV)
+    self.VZ = zeros(NMAX,'int')
+
   def _add_vertex(self,x):
 
     vnum = self.vnum
     self.X[vnum,:] = x
+    z = get_z(x,ZONES)
+    self.ZV[z].append(vnum)
+    self.VZ[vnum] = z
 
     self.vnum += 1
     return self.vnum-1
-  
-  def update_tree(self):
 
+  def update_zone_maps(self):
+    
     vnum = self.vnum
+    zz = get_zz(self.X[:vnum,:],ZONES)
+    mask = (zz != self.VZ[:vnum]).nonzero()[0]
 
-    self.tree = cKDTree(self.X[:vnum,:])
+    for bad_v in mask:
+      new_z = zz[bad_v]
+      old_z = self.VZ[bad_v]
+
+      new = [v for v in self.ZV[old_z] if v != bad_v]
+      self.ZV[old_z] = new
+      self.ZV[new_z].append(bad_v)
+
+    self.VZ[mask] = zz[mask]
 
   def get_all_near_vertices(self,r):
 
-    near_inds = self.tree.query_ball_point(self.X[:self.vnum,:],r)
+    near_inds = pyx_near_zone_inds(self.VZ[:self.vnum],self.ZV,ZONES)
 
     return near_inds
 
@@ -244,6 +263,34 @@ class Line(object):
 
     return newv, [b,c]
 
+#def near_zone_inds(zz,zv,nz):
+
+  #z_inds = []
+  #nz2 = nz+2
+  #for z in zz:
+
+    #neighbors = z + array([-(nz2-1),-nz2,-(nz2+1),-1,0,1,nz2-1,nz2,nz2+1],'int')
+    ##print z, neighbors, nz
+    #it = itemgetter(*neighbors)
+    #its = it(zv)
+    ##inds = [b for a in its for b in a]
+    #inds = concatenate(its)
+    #z_inds.append(inds)
+
+  #return z_inds
+
+def get_z(x,nz):
+
+  i = 1+int(x[0]*nz) 
+  j = 1+int(x[1]*nz) 
+  z = i*nz+j
+  return z
+
+def get_zz(xx,nz):
+
+  ij = (xx*nz).astype('int')
+  zz = ij[:,0]*(nz+2) + ij[:,1]+1
+  return zz
 
 def init_circle(l,ix,iy,r,n):
 
@@ -267,37 +314,6 @@ def init_circle(l,ix,iy,r,n):
   connected_to.append(first)
   l._add_segment(vv[0],vv[-1],connected_to=connected_to)
 
-def growth(l,near_limit):
-
-  kvv,dx,dd = segment_lengths(l)
-  alive_segments = l.SVMASK[:l.sind].nonzero()[0]
-  
-  k_mapping = {k:i for (i,k) in enumerate(alive_segments)}
-
-  count = 0
-  grow = []
-  for s in alive_segments:
-
-    ss = l.SS[s]
-
-    s0 = k_mapping[ss[0]]
-    s1 = k_mapping[ss[1]]
-
-    length = (dd[s0]+dd[s1])*0.5
-    dot = dx[s0,0]*dx[s1,0]+dx[s0,1]*dx[s1,1]
-    kappa = 1.-npabs(dot)
-
-    if random()<kappa**0.5 and length>near_limit:
-      grow.append(s)
-      count += 1
-    
-  new_vertices = []
-  for g in grow:
-    newv,_ = l.split_segment(g)
-    new_vertices.append(newv)
-
-  return new_vertices
-
 def segment_lengths(l):
 
   kvv = l.SV[:l.sind,:][l.SVMASK[:l.sind]>0,:]
@@ -319,48 +335,6 @@ def segment_attract(l,sx,nearl):
   sx[kvv[mask,0],:] += dx[mask,:]
   sx[kvv[mask,1],:] -= dx[mask,:]
 
-def collision_reject(l,sx,farl):
-
-  vnum = l.vnum
-  X = reshape(l.X[:vnum,0],(vnum,1))
-  Y = reshape(l.X[:vnum,1],(vnum,1))
-  near = l.get_all_near_vertices(farl)
-  nrows = len(near)
-  n_near = [len(a) for a in near]
-  ncols = npmax(n_near)
-
-  ind = zeros((nrows,ncols),'int')
-  xforce_mask = zeros((nrows,ncols),'bool')
-
-  for j,(ii,lii) in enumerate(zip(near,n_near)):
-
-    ind[j,:lii] = ii
-    xforce_mask[j,lii:] = True
-
-  dx = -X[ind,:].squeeze()
-  dy = -Y[ind,:].squeeze()
-  dx += X
-  dy += Y
-
-  dd = square(dx)+square(dy)
-  sqrt(dd,dd)
-
-  dx /= dd
-  dy /= dd
-
-  force = farl-dd
-
-  xforce_mask[dd == 0.] = True
-  dx[xforce_mask] = 0.
-  dy[xforce_mask] = 0.
-
-  force[xforce_mask] = 0.
-  
-  dx *= force
-  dy *= force
-
-  sx[:,0] += npsum(dx,axis=1)
-  sx[:,1] += npsum(dy,axis=1)
 
 
 def main():
@@ -377,7 +351,7 @@ def main():
 
     render.clear_canvas()
     render.ctx.set_source_rgba(*FRONT)
-    render.ctx.set_line_width(ONE*2)
+    render.ctx.set_line_width(ONE*2.)
     for vv in l.SV[:l.sind,:][l.SVMASK[:l.sind]>0,:]:
       render.line(l.X[vv[0],0],l.X[vv[0],1],
                   l.X[vv[1],0],l.X[vv[1],1])
@@ -385,17 +359,17 @@ def main():
 
   def step():
 
-    new_vertices = growth(L,NEARL*1.1)
-    #new_vertices = pyx_growth(L,NEARL*1.1)
+    pyx_growth(L,GROW_NEAR_LIMIT)
 
-    L.update_tree()
+    L.update_zone_maps()
 
     if not render.steps%RENDER_ITT:
 
       show(render,L)
       print 'steps:',render.steps,'vnum:',L.vnum,'snum:',L.snum
-      
-      fn = '{:s}_nearl{:0.0f}_itt{:07d}.png'.format(FNAME,FARL/ONE,render.steps)
+     
+      fn = '{:s}_nearl{:0.0f}_itt{:07d}.png'
+      fn = fn.format(FNAME,FARL/ONE,render.steps)
       render.sur.write_to_png(fn)
 
     vnum = L.vnum
@@ -403,8 +377,7 @@ def main():
 
     segment_attract(L,SX[:L.vnum,:],NEARL)
 
-    collision_reject(L,SX[:L.vnum,:],FARL)
-    #pyx_collision_reject(L,SX[:L.vnum,:],FARL)
+    pyx_collision_reject(L,SX[:L.vnum,:],FARL)
 
     SX[:vnum,:] *= STP
     L.X[:vnum,:] += SX[:vnum,:]
