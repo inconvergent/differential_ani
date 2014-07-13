@@ -22,12 +22,12 @@ import cairo, Image
 from collections import defaultdict
 from itertools import count
 
-from speedup.speedup import pyx_collision_reject
-from speedup.speedup import pyx_growth
+#from speedup.speedup import pyx_collision_reject
+#from speedup.speedup import pyx_growth
 
 seed(3)
 
-FNAME = './img/d_opt'
+FNAME = './img/e_bad'
 
 
 BACK = [0.1]*3
@@ -162,7 +162,6 @@ class Line(object):
     self.snum = 0
     self.sind = 0
 
-  #@profile
   def _add_vertex(self,x):
 
     vnum = self.vnum
@@ -171,21 +170,18 @@ class Line(object):
     self.vnum += 1
     return self.vnum-1
   
-  #@profile
   def update_tree(self):
 
     vnum = self.vnum
 
     self.tree = cKDTree(self.X[:vnum,:])
 
-  #@profile
   def get_all_near_vertices(self,r):
 
     near_inds = self.tree.query_ball_point(self.X[:self.vnum,:],r)
 
     return near_inds
 
-  #@profile
   def _add_segment(self,a,b,connected_to=[]):
 
     for seg in connected_to:
@@ -206,7 +202,6 @@ class Line(object):
     self.snum += 1
     return self.sind-1
 
-  #@profile
   def _delete_segment(self,a):
 
     vv = self.SV[a,:]
@@ -221,7 +216,6 @@ class Line(object):
 
     return vv
 
-  #@profile
   def split_segment(self,a):
 
     vv = self.SV[a,:]
@@ -273,7 +267,6 @@ def init_circle(l,ix,iy,r,n):
   connected_to.append(first)
   l._add_segment(vv[0],vv[-1],connected_to=connected_to)
 
-#@profile
 def growth(l,near_limit):
 
   kvv,dx,dd = segment_lengths(l)
@@ -305,7 +298,6 @@ def growth(l,near_limit):
 
   return new_vertices
 
-#@profile
 def segment_lengths(l):
 
   kvv = l.SV[:l.sind,:][l.SVMASK[:l.sind]>0,:]
@@ -319,7 +311,6 @@ def segment_lengths(l):
   return kvv,dx,dd
 
 
-#@profile
 def segment_attract(l,sx,nearl):
 
   kvv,dx,dd = segment_lengths(l)
@@ -328,7 +319,6 @@ def segment_attract(l,sx,nearl):
   sx[kvv[mask,0],:] += dx[mask,:]
   sx[kvv[mask,1],:] -= dx[mask,:]
 
-#@profile
 def collision_reject(l,sx,farl):
 
   vnum = l.vnum
@@ -373,7 +363,6 @@ def collision_reject(l,sx,farl):
   sx[:,1] += npsum(dy,axis=1)
 
 
-#@profile
 def main():
 
   L = Line()
@@ -384,7 +373,6 @@ def main():
   SX = zeros((NMAX,2),'float')
 
 
-  #@profile
   def show(render,l):
 
     render.clear_canvas()
@@ -395,11 +383,10 @@ def main():
                   l.X[vv[1],0],l.X[vv[1],1])
 
 
-  #@profile
   def step():
 
-    #new_vertices = growth(L,NEARL*1.1)
-    new_vertices = pyx_growth(L,NEARL*1.1)
+    new_vertices = growth(L,NEARL*1.1)
+    #new_vertices = pyx_growth(L,NEARL*1.1)
 
     L.update_tree()
 
@@ -416,8 +403,8 @@ def main():
 
     segment_attract(L,SX[:L.vnum,:],NEARL)
 
-    #collision_reject(L,SX[:L.vnum,:],FARL)
-    pyx_collision_reject(L,SX[:L.vnum,:],FARL)
+    collision_reject(L,SX[:L.vnum,:],FARL)
+    #pyx_collision_reject(L,SX[:L.vnum,:],FARL)
 
     SX[:vnum,:] *= STP
     L.X[:vnum,:] += SX[:vnum,:]
