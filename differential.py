@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 
-
 import gtk, gobject
 
 from numpy import cos, sin, pi, sqrt, sort,\
@@ -28,7 +27,7 @@ from speedup.speedup import pyx_growth
 
 seed(3)
 
-FNAME = './img/b_sweep'
+FNAME = './img/d_opt'
 
 
 BACK = [0.1]*3
@@ -42,18 +41,18 @@ PI = pi
 TWOPI = 2.*pi
 
 NMAX = 2*1e8
-SIZE = 1000
+SIZE = 2000
 ONE = 1./SIZE
 
-STP = ONE
-FARL  = 20*ONE
-NEARL = 3*ONE
+STP = ONE*0.9
+FARL  = 40.*ONE
+NEARL = 3.*ONE
 
 MID = 0.5
 INIT_R = 0.0001
 INIT_N = 100
 
-RENDER_ITT = 100 # redraw this often
+RENDER_ITT = 1000 # redraw this often
 
 
 class Render(object):

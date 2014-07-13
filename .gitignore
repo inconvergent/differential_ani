@@ -9,3 +9,4 @@ kernprof.py
 *.lprof
 build/*
 *.so
+*.html
