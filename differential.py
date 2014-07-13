@@ -423,8 +423,9 @@ if __name__ == '__main__' :
   if True:
 
     import pstats, cProfile
-    cProfile.run('main()','profile.profile')
-    p = pstats.Stats('profile.profile')
+    fn = './profile/profile'
+    cProfile.run('main()',fn)
+    p = pstats.Stats(fn)
     p.strip_dirs().sort_stats('cumulative').print_stats()
 
   else:

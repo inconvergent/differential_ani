@@ -10,3 +10,4 @@ kernprof.py
 build/*
 *.so
 *.html
+profile/*
