@@ -12,22 +12,19 @@ from libc.math cimport pow
 from libc.math cimport fabs
 
 
-DINT = np.int
+INT = np.int
 ctypedef np.int_t DINT_t
-DDOUBLE = np.double
-ctypedef np.double_t DDOUBLE_t
+DOUBLE = np.double
+ctypedef np.double_t DOUBLE_t
 
-@cython.cdivision(True)
-cdef inline double get_force(double lim,double a, double b):
+cdef inline double norm(double a, double b):
   cdef double dd = sqrt(pow(a,2)+pow(b,2))
-  if dd <= 0. or dd>lim:
-    return 0.
-  else:
-    return (lim-dd)/dd
+  return dd
 
 @cython.wraparound(False)
 @cython.boundscheck(False)
 @cython.nonecheck(False)
+@cython.cdivision(True)
 def pyx_collision_reject(l,np.ndarray[double, mode="c",ndim=2] sx,double farl):
 
   cdef unsigned int vnum = l.vnum
@@ -47,6 +44,7 @@ def pyx_collision_reject(l,np.ndarray[double, mode="c",ndim=2] sx,double farl):
   cdef double dx
   cdef double dy
   cdef double force
+  cdef double nrm
   cdef double resx
   cdef double resy
 
@@ -56,35 +54,31 @@ def pyx_collision_reject(l,np.ndarray[double, mode="c",ndim=2] sx,double farl):
     resy = 0.
     x = X[j]
     y = Y[j]
+    nearj = near[j]
     for c in range(k):
-      ind = <unsigned int>near[j][c]
+      ind = <unsigned int>nearj[c]
       if ind == k:
         continue
       dx = x-X[ind]
       dy = y-Y[ind]
-      force = get_force(farl,dx,dy)
+      nrm = norm(dx,dy)
+      if nrm<=0 or nrm>farl:
+        continue
+      force = (farl-nrm)/nrm
       resx += dx*force
       resy += dy*force
 
     sx[j,0] += resx
     sx[j,1] += resy
 
-@cython.cdivision(True)
-cdef dist_scale(double a, double b):
-  cdef double ad
-  cdef double bd 
-  cdef double dd = sqrt(pow(a,2)+pow(b,2))
-  if dd <= 0.:
-    return 0.,0.,0.
-  else:
-    ad = a/dd
-    bd = b/dd
-    return dd,ad,bd
+  return
+
 
 @cython.wraparound(False)
 @cython.boundscheck(False)
 @cython.nonecheck(False)
-def pyx_growth(l,double near_limit):
+@cython.cdivision(True)
+def pyx_growth(l,np.ndarray[double, mode="c",ndim=1] rnd ,double near_limit):
 
   cdef unsigned int sind = l.sind
   cdef unsigned int vnum = l.vnum
@@ -112,23 +106,32 @@ def pyx_growth(l,double near_limit):
   grow = []
   for i in range(sind):
 
-    if SVMASK[i]<1:
-      continue
+    if SVMASK[i]>0:
 
-    s1 = SS[i][0]
-    s2 = SS[i][1]
+      s1 = <unsigned int>SS[i][0]
+      s2 = <unsigned int>SS[i][1]
+      
+      dx1 = X[SV[s1,0]]-X[SV[s1,1]]
+      dy1 = Y[SV[s1,0]]-Y[SV[s1,1]]
+      dx2 = X[SV[s2,0]]-X[SV[s2,1]]
+      dy2 = Y[SV[s2,0]]-Y[SV[s2,1]]
 
-    dd1,dx1,dy1 = dist_scale(X[SV[s1,0]]-X[SV[s1,1]],Y[SV[s1,0]]-Y[SV[s1,1]])
-    dd2,dx2,dy2 = dist_scale(X[SV[s2,0]]-X[SV[s2,1]],Y[SV[s2,0]]-Y[SV[s2,1]])
-    
-    kappa2 = sqrt(1.-fabs(dx1*dx2+dy1*dy2))
+      dd1 = norm(dx1,dy1)
+      dd2 = norm(dx2,dy2)
 
-    if random()<kappa2 and (dd1+dd2)*0.5>near_limit:
-      grow.append(i)
+      if dd1<=0. or dd2<=0.:
+        continue
+
+      kappa2 = sqrt(1.-fabs( dx1/dd1*dx2/dd2+dy1/dd1*dy2/dd2 ))
+
+      if (dd1+dd2)*0.5>near_limit and rnd[i]<kappa2:
+        grow.append(i)
 
   cdef unsigned int g
   for g in grow:
     l.split_segment(g)
+
+  return
 
 @cython.wraparound(False)
 @cython.boundscheck(False)
@@ -138,6 +141,7 @@ def pyx_near_zone_inds(np.ndarray[long, mode="c",ndim=1] zz,zv,int nz):
   z_inds = []
   cdef int nz2 = nz+2
   cdef unsigned int z
+  cdef unsigned int m
 
   cdef unsigned int i1
   cdef unsigned int i2
@@ -149,17 +153,20 @@ def pyx_near_zone_inds(np.ndarray[long, mode="c",ndim=1] zz,zv,int nz):
   cdef unsigned int i8
   cdef unsigned int i9
 
-  for z in zz:
+  m = zz.shape[0]
 
-    i1 = z-(nz2-1)
-    i2 = z-nz2
-    i3 = z-(nz2+1)
-    i4 = z-1
-    i5 = z+0
-    i6 = z+1
-    i7 = z+nz2-1
-    i8 = z+nz2
-    i9 = z+nz2+1
+  for i in xrange(m):
+    z = zz[i]
+
+    i1 = <unsigned int>(z-(nz2-1))
+    i2 = <unsigned int>(z-nz2)
+    i3 = <unsigned int>(z-(nz2+1))
+    i4 = <unsigned int>(z-1)
+    i5 = <unsigned int>(z+0)
+    i6 = <unsigned int>(z+1)
+    i7 = <unsigned int>(z+nz2-1)
+    i8 = <unsigned int>(z+nz2)
+    i9 = <unsigned int>(z+nz2+1)
 
     inds = []
     inds.extend(zv[i1])

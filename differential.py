@@ -24,7 +24,7 @@ from speedup.speedup import pyx_near_zone_inds
 
 seed(3)
 
-FNAME = './img/e_bad'
+FNAME = './img/a_speedup'
 
 
 BACK = [0.1]*3
@@ -38,7 +38,7 @@ PI = pi
 TWOPI = 2.*pi
 
 NMAX = 2*1e8
-SIZE = 2000
+SIZE = 1000
 ONE = 1./SIZE
 
 STP = ONE
@@ -50,7 +50,7 @@ MID = 0.5
 INIT_R = 0.0001
 INIT_N = 100
 
-RENDER_ITT = 100 # redraw this often
+RENDER_ITT = 500 # redraw this often
 
 ZONEWIDTH = FARL/ONE
 ZONES = int(SIZE/ZONEWIDTH)
@@ -359,7 +359,8 @@ def main():
 
   def step():
 
-    pyx_growth(L,GROW_NEAR_LIMIT)
+    rnd = random(L.sind)
+    pyx_growth(L,rnd,GROW_NEAR_LIMIT)
 
     L.update_zone_maps()
 
