@@ -8,9 +8,3 @@ all:
 html:
 	cython -a src/*.pyx
 
-run:
-	python setup.py build_ext --inplace
-	./differential.py
-
-
-

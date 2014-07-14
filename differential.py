@@ -263,21 +263,6 @@ class Line(object):
 
     return newv, [b,c]
 
-#def near_zone_inds(zz,zv,nz):
-
-  #z_inds = []
-  #nz2 = nz+2
-  #for z in zz:
-
-    #neighbors = z + array([-(nz2-1),-nz2,-(nz2+1),-1,0,1,nz2-1,nz2,nz2+1],'int')
-    ##print z, neighbors, nz
-    #it = itemgetter(*neighbors)
-    #its = it(zv)
-    ##inds = [b for a in its for b in a]
-    #inds = concatenate(its)
-    #z_inds.append(inds)
-
-  #return z_inds
 
 def get_z(x,nz):
 

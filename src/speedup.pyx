@@ -141,77 +141,6 @@ def pyx_growth(l,np.ndarray[double, mode="c",ndim=1] rnd ,double near_limit):
   return
 
 
-#def add_indices(cur_zone_inds,int *buf, int count):
-  #cur_zone_len = len(cur_zone_inds)
-  #for k in xrange(cur_zone_len):
-    #buf[count] = cur_zone_inds[k]
-    #count += 1
-  #return count
-
-
-#@cython.wraparound(False)
-#@cython.boundscheck(False)
-#@cython.nonecheck(False)
-#def pyx_near_zone_inds(np.ndarray[long, mode="c",ndim=1] zz,
-                       #zv, int nz, int bufsize=500):
-
-  #cdef unsigned int i
-  #cdef unsigned int i_shift
-  #cdef unsigned int cur_zone_len
-  #cdef unsigned int zone
-
-  #cdef unsigned int k
-  #cdef unsigned int count
-
-  #cdef unsigned int m = zz.shape[0]
-
-  #cdef int *zone_shift = [-(nz+1),-(nz+2),-(nz+3),-1,0,1,nz+1,nz+2,nz+3]
-
-  #cdef int *buf = <int *>malloc(bufsize*sizeof(int))
-  #if not buf:
-    #raise MemoryError()
-
-  #res = []
-
-  #try:
-    #for i in xrange(m):
-
-      #count = 0
-      #zone = zz[i]
-
-      #cur_zone_inds = zv[zone_shift[0] + zone]
-      #count = add_indices(cur_zone_inds, buf, count)
-
-      #cur_zone_inds = zv[zone_shift[1] + zone]
-      #count = add_indices(cur_zone_inds, buf, count)
-
-      #cur_zone_inds = zv[zone_shift[2] + zone]
-      #count = add_indices(cur_zone_inds, buf, count)
-
-      #cur_zone_inds = zv[zone_shift[3] + zone]
-      #count = add_indices(cur_zone_inds, buf, count)
-
-      #cur_zone_inds = zv[zone_shift[4] + zone]
-      #count = add_indices(cur_zone_inds, buf, count)
-
-      #cur_zone_inds = zv[zone_shift[5] + zone]
-      #count = add_indices(cur_zone_inds, buf, count)
-
-      #cur_zone_inds = zv[zone_shift[6] + zone]
-      #count = add_indices(cur_zone_inds, buf, count)
-
-      #cur_zone_inds = zv[zone_shift[7] + zone]
-      #count = add_indices(cur_zone_inds, buf, count)
-
-      #cur_zone_inds = zv[zone_shift[8] + zone]
-      #count = add_indices(cur_zone_inds, buf, count)
-
-      #res.append([buf[h] for h in xrange(count)])
-
-  #finally:
-      #free(buf)
-
-  #return res
 
 @cython.wraparound(False)
 @cython.boundscheck(False)
@@ -234,6 +163,8 @@ def pyx_near_zone_inds(np.ndarray[long, mode="c",ndim=1] zz,zv,int nz):
   cdef unsigned int i9
 
   m = zz.shape[0]
+
+  cdef unsigned total = 0
 
   for i in xrange(m):
     z = zz[i]
@@ -259,6 +190,7 @@ def pyx_near_zone_inds(np.ndarray[long, mode="c",ndim=1] zz,zv,int nz):
     inds.extend(zv[i8])
     inds.extend(zv[i9])
     z_inds.append(inds)
-
+    total += len(inds)
+  
   return z_inds
 
