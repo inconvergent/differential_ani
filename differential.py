@@ -195,12 +195,6 @@ class Line(object):
 
     self.VZ[mask] = zz[mask]
 
-  def get_all_near_vertices(self,r):
-
-    near_inds = pyx_near_zone_inds(self.VZ[:self.vnum],self.ZV,ZONES)
-
-    return near_inds
-
   def _add_segment(self,a,b,connected_to=[]):
 
     for seg in connected_to:
@@ -363,7 +357,7 @@ def main():
 
     segment_attract(L,SX[:L.vnum,:],NEARL)
 
-    pyx_collision_reject(L,SX[:L.vnum,:],FARL)
+    pyx_collision_reject(L,SX[:L.vnum,:],FARL,ZONES)
 
     SX[:vnum,:] *= STP
     L.X[:vnum,:] += SX[:vnum,:]

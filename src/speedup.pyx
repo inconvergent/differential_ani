@@ -25,18 +25,19 @@ cdef inline double norm(double a, double b):
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-def pyx_collision_reject(l,np.ndarray[double, mode="c",ndim=2] sx,double farl):
+def pyx_collision_reject(l,np.ndarray[double, mode="c",ndim=2] sx,double farl, int nz):
 
   cdef unsigned int vnum = l.vnum
 
   cdef np.ndarray[double, mode="c",ndim=2] X = l.X[:vnum,:]
+  cdef np.ndarray[long, mode="c",ndim=1] VZ = l.VZ[:vnum]
 
-  near = l.get_all_near_vertices(farl)
+  neighbor_map = pyx_near_zone_inds(l.ZV,nz)
 
-  cdef unsigned int k
-  cdef unsigned int c
-  cdef unsigned int j
-  cdef unsigned int ind
+  cdef unsigned int v
+  cdef unsigned int n
+  cdef unsigned int num_neighbors
+  cdef unsigned int neigh
 
   cdef double x
   cdef double y
@@ -47,19 +48,20 @@ def pyx_collision_reject(l,np.ndarray[double, mode="c",ndim=2] sx,double farl):
   cdef double resx
   cdef double resy
 
-  for j in range(vnum):
-    k = <unsigned int>len(near[j])
+  for v in range(vnum):
     resx = 0.
     resy = 0.
-    x = X[j,0]
-    y = X[j,1]
-    nearj = near[j]
-    for c in range(k):
-      ind = <unsigned int>nearj[c]
-      if ind == k:
+    x = X[v,0]
+    y = X[v,1]
+    neighbors = neighbor_map[VZ[v]]
+    num_neighbors = len(neighbors)
+
+    for n in range(num_neighbors):
+      neigh = <unsigned int>neighbors[n]
+      if neigh == v:
         continue
-      dx = x-X[ind,0]
-      dy = y-X[ind,1]
+      dx = x-X[neigh,0]
+      dy = y-X[neigh,1]
       nrm = norm(dx,dy)
       if nrm<=0 or nrm>farl:
         continue
@@ -67,8 +69,8 @@ def pyx_collision_reject(l,np.ndarray[double, mode="c",ndim=2] sx,double farl):
       resx += dx*force
       resy += dy*force
 
-    sx[j,0] += resx
-    sx[j,1] += resy
+    sx[v,0] += resx
+    sx[v,1] += resy
 
   return
 
@@ -141,16 +143,17 @@ def pyx_growth(l,np.ndarray[double, mode="c",ndim=1] rnd ,double near_limit):
   return
 
 
-
 @cython.wraparound(False)
 @cython.boundscheck(False)
 @cython.nonecheck(False)
-def pyx_near_zone_inds(np.ndarray[long, mode="c",ndim=1] zz,zv,int nz):
+def pyx_near_zone_inds(zv,int nz):
 
-  z_inds = []
+  cdef dict neighbor_map = {}
   cdef int nz2 = nz+2
+  cdef unsigned int i
+  cdef unsigned int j
   cdef unsigned int z
-  cdef unsigned int m
+
 
   cdef unsigned int i1
   cdef unsigned int i2
@@ -162,35 +165,31 @@ def pyx_near_zone_inds(np.ndarray[long, mode="c",ndim=1] zz,zv,int nz):
   cdef unsigned int i8
   cdef unsigned int i9
 
-  m = zz.shape[0]
+  for i in xrange(nz):
+    for j in xrange(nz):
+      z = (i+1)*(nz2) + j+1
 
-  cdef unsigned total = 0
+      i1 = <unsigned int>(z-(nz2-1))
+      i2 = <unsigned int>(z-nz2)
+      i3 = <unsigned int>(z-(nz2+1))
+      i4 = <unsigned int>(z-1)
+      i5 = <unsigned int>(z+0)
+      i6 = <unsigned int>(z+1)
+      i7 = <unsigned int>(z+nz2-1)
+      i8 = <unsigned int>(z+nz2)
+      i9 = <unsigned int>(z+nz2+1)
 
-  for i in xrange(m):
-    z = zz[i]
-
-    i1 = <unsigned int>(z-(nz2-1))
-    i2 = <unsigned int>(z-nz2)
-    i3 = <unsigned int>(z-(nz2+1))
-    i4 = <unsigned int>(z-1)
-    i5 = <unsigned int>(z+0)
-    i6 = <unsigned int>(z+1)
-    i7 = <unsigned int>(z+nz2-1)
-    i8 = <unsigned int>(z+nz2)
-    i9 = <unsigned int>(z+nz2+1)
-
-    inds = []
-    inds.extend(zv[i1])
-    inds.extend(zv[i2])
-    inds.extend(zv[i3])
-    inds.extend(zv[i4])
-    inds.extend(zv[i5])
-    inds.extend(zv[i6])
-    inds.extend(zv[i7])
-    inds.extend(zv[i8])
-    inds.extend(zv[i9])
-    z_inds.append(inds)
-    total += len(inds)
+      inds = []
+      inds.extend(zv[i1])
+      inds.extend(zv[i2])
+      inds.extend(zv[i3])
+      inds.extend(zv[i4])
+      inds.extend(zv[i5])
+      inds.extend(zv[i6])
+      inds.extend(zv[i7])
+      inds.extend(zv[i8])
+      inds.extend(zv[i9])
+      neighbor_map[z] = inds
   
-  return z_inds
+  return neighbor_map
 
