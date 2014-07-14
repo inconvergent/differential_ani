@@ -20,7 +20,6 @@ from itertools import count
 
 from speedup.speedup import pyx_collision_reject
 from speedup.speedup import pyx_growth
-from speedup.speedup import pyx_near_zone_inds
 
 seed(3)
 
