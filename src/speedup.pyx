@@ -7,15 +7,15 @@ from numpy.random import random
 cimport numpy as np
 cimport cython
 
+from libc.stdlib cimport malloc, free
 from libc.math cimport sqrt
 from libc.math cimport pow
 from libc.math cimport fabs
 
-
-INT = np.int
-ctypedef np.int_t DINT_t
-DOUBLE = np.double
-ctypedef np.double_t DOUBLE_t
+int = np.int
+ctypedef np.int_t int_t
+double = np.double
+ctypedef np.double_t double_t
 
 cdef inline double norm(double a, double b):
   cdef double dd = sqrt(pow(a,2)+pow(b,2))
@@ -92,6 +92,9 @@ def pyx_growth(l,np.ndarray[double, mode="c",ndim=1] rnd ,double near_limit):
   cdef unsigned int s1
   cdef unsigned int s2
 
+  cdef unsigned int c
+  cdef unsigned int count = 0
+
   cdef double dx1
   cdef double dy1
   cdef double dx2
@@ -100,35 +103,115 @@ def pyx_growth(l,np.ndarray[double, mode="c",ndim=1] rnd ,double near_limit):
   cdef double dd2
   cdef double kappa2
 
-  grow = []
-  for i in range(sind):
+  cdef int *grow = <int *>malloc(sind*sizeof(int))
+  if not grow:
+    raise MemoryError()
 
-    if SVMASK[i]>0:
+  try:
+    for i in range(sind):
 
-      s1 = <unsigned int>SS[i][0]
-      s2 = <unsigned int>SS[i][1]
-      
-      dx1 = X[SV[s1,0],0]-X[SV[s1,1],0]
-      dy1 = X[SV[s1,0],1]-X[SV[s1,1],1]
-      dx2 = X[SV[s2,0],0]-X[SV[s2,1],0]
-      dy2 = X[SV[s2,0],1]-X[SV[s2,1],1]
+      if SVMASK[i]>0:
 
-      dd1 = norm(dx1,dy1)
-      dd2 = norm(dx2,dy2)
+        s1 = <unsigned int>SS[i][0]
+        s2 = <unsigned int>SS[i][1]
+        
+        dx1 = X[SV[s1,0],0]-X[SV[s1,1],0]
+        dy1 = X[SV[s1,0],1]-X[SV[s1,1],1]
+        dx2 = X[SV[s2,0],0]-X[SV[s2,1],0]
+        dy2 = X[SV[s2,0],1]-X[SV[s2,1],1]
 
-      if dd1<=0. or dd2<=0.:
-        continue
+        dd1 = norm(dx1,dy1)
+        dd2 = norm(dx2,dy2)
 
-      kappa2 = sqrt(1.-fabs( dx1/dd1*dx2/dd2+dy1/dd1*dy2/dd2 ))
+        if dd1<=0. or dd2<=0.:
+          continue
 
-      if (dd1+dd2)*0.5>near_limit and rnd[i]<kappa2:
-        grow.append(i)
+        kappa2 = sqrt(1.-fabs( dx1/dd1*dx2/dd2+dy1/dd1*dy2/dd2 ))
 
-  cdef unsigned int g
-  for g in grow:
-    l.split_segment(g)
+        if (dd1+dd2)*0.5>near_limit and rnd[i]<kappa2:
+          grow[count] = i
+          count += 1
+
+    for c in range(count):
+      l.split_segment(grow[c])
+
+  finally:
+    free(grow)
 
   return
+
+
+#def add_indices(cur_zone_inds,int *buf, int count):
+  #cur_zone_len = len(cur_zone_inds)
+  #for k in xrange(cur_zone_len):
+    #buf[count] = cur_zone_inds[k]
+    #count += 1
+  #return count
+
+
+#@cython.wraparound(False)
+#@cython.boundscheck(False)
+#@cython.nonecheck(False)
+#def pyx_near_zone_inds(np.ndarray[long, mode="c",ndim=1] zz,
+                       #zv, int nz, int bufsize=500):
+
+  #cdef unsigned int i
+  #cdef unsigned int i_shift
+  #cdef unsigned int cur_zone_len
+  #cdef unsigned int zone
+
+  #cdef unsigned int k
+  #cdef unsigned int count
+
+  #cdef unsigned int m = zz.shape[0]
+
+  #cdef int *zone_shift = [-(nz+1),-(nz+2),-(nz+3),-1,0,1,nz+1,nz+2,nz+3]
+
+  #cdef int *buf = <int *>malloc(bufsize*sizeof(int))
+  #if not buf:
+    #raise MemoryError()
+
+  #res = []
+
+  #try:
+    #for i in xrange(m):
+
+      #count = 0
+      #zone = zz[i]
+
+      #cur_zone_inds = zv[zone_shift[0] + zone]
+      #count = add_indices(cur_zone_inds, buf, count)
+
+      #cur_zone_inds = zv[zone_shift[1] + zone]
+      #count = add_indices(cur_zone_inds, buf, count)
+
+      #cur_zone_inds = zv[zone_shift[2] + zone]
+      #count = add_indices(cur_zone_inds, buf, count)
+
+      #cur_zone_inds = zv[zone_shift[3] + zone]
+      #count = add_indices(cur_zone_inds, buf, count)
+
+      #cur_zone_inds = zv[zone_shift[4] + zone]
+      #count = add_indices(cur_zone_inds, buf, count)
+
+      #cur_zone_inds = zv[zone_shift[5] + zone]
+      #count = add_indices(cur_zone_inds, buf, count)
+
+      #cur_zone_inds = zv[zone_shift[6] + zone]
+      #count = add_indices(cur_zone_inds, buf, count)
+
+      #cur_zone_inds = zv[zone_shift[7] + zone]
+      #count = add_indices(cur_zone_inds, buf, count)
+
+      #cur_zone_inds = zv[zone_shift[8] + zone]
+      #count = add_indices(cur_zone_inds, buf, count)
+
+      #res.append([buf[h] for h in xrange(count)])
+
+  #finally:
+      #free(buf)
+
+  #return res
 
 @cython.wraparound(False)
 @cython.boundscheck(False)
