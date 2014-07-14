@@ -29,8 +29,7 @@ def pyx_collision_reject(l,np.ndarray[double, mode="c",ndim=2] sx,double farl):
 
   cdef unsigned int vnum = l.vnum
 
-  cdef np.ndarray[double, mode="c",ndim=1] X = l.X[:vnum,0].ravel()
-  cdef np.ndarray[double, mode="c",ndim=1] Y = l.X[:vnum,1].ravel()
+  cdef np.ndarray[double, mode="c",ndim=2] X = l.X[:vnum,:]
 
   near = l.get_all_near_vertices(farl)
 
@@ -52,15 +51,15 @@ def pyx_collision_reject(l,np.ndarray[double, mode="c",ndim=2] sx,double farl):
     k = <unsigned int>len(near[j])
     resx = 0.
     resy = 0.
-    x = X[j]
-    y = Y[j]
+    x = X[j,0]
+    y = X[j,1]
     nearj = near[j]
     for c in range(k):
       ind = <unsigned int>nearj[c]
       if ind == k:
         continue
-      dx = x-X[ind]
-      dy = y-Y[ind]
+      dx = x-X[ind,0]
+      dy = y-X[ind,1]
       nrm = norm(dx,dy)
       if nrm<=0 or nrm>farl:
         continue
@@ -83,13 +82,11 @@ def pyx_growth(l,np.ndarray[double, mode="c",ndim=1] rnd ,double near_limit):
   cdef unsigned int sind = l.sind
   cdef unsigned int vnum = l.vnum
 
+  cdef np.ndarray[long, mode="c",ndim=1] SVMASK = l.SVMASK[:sind]
   cdef np.ndarray[long, mode="c",ndim=2] SV = l.SV[:sind,:]
   cdef dict SS = l.SS
 
-  cdef np.ndarray[long, mode="c",ndim=1] SVMASK = l.SVMASK[:sind]
-
-  cdef np.ndarray[double, mode="c",ndim=1] X = l.X[:vnum,0].ravel()
-  cdef np.ndarray[double, mode="c",ndim=1] Y = l.X[:vnum,1].ravel()
+  cdef np.ndarray[double, mode="c",ndim=2] X = l.X[:vnum,:]
 
   cdef unsigned int i
   cdef unsigned int s1
@@ -111,10 +108,10 @@ def pyx_growth(l,np.ndarray[double, mode="c",ndim=1] rnd ,double near_limit):
       s1 = <unsigned int>SS[i][0]
       s2 = <unsigned int>SS[i][1]
       
-      dx1 = X[SV[s1,0]]-X[SV[s1,1]]
-      dy1 = Y[SV[s1,0]]-Y[SV[s1,1]]
-      dx2 = X[SV[s2,0]]-X[SV[s2,1]]
-      dy2 = Y[SV[s2,0]]-Y[SV[s2,1]]
+      dx1 = X[SV[s1,0],0]-X[SV[s1,1],0]
+      dy1 = X[SV[s1,0],1]-X[SV[s1,1],1]
+      dx2 = X[SV[s2,0],0]-X[SV[s2,1],0]
+      dy2 = X[SV[s2,0],1]-X[SV[s2,1],1]
 
       dd1 = norm(dx1,dy1)
       dd2 = norm(dx2,dy2)
