@@ -5,14 +5,9 @@
 import cairo, Image
 import gtk, gobject
 
-from numpy import cos, sin, pi, sqrt, sort,\
-                  square, linspace, arange, logical_and, concatenate,\
-                  array, zeros, diff, column_stack, row_stack,\
-                  logical_not, ones, reshape
+from numpy import cos, sin, pi, sqrt, sort, square,array, zeros, diff,\
+                  column_stack,ones, reshape
 
-from numpy import max as npmax
-from numpy import min as npmin
-from numpy import abs as npabs
 from numpy import sum as npsum
 from numpy.random import random, seed
 
@@ -21,9 +16,9 @@ from itertools import count
 from speedup.speedup import pyx_collision_reject
 from speedup.speedup import pyx_growth
 
-seed(3)
+seed(4)
 
-FNAME = './img/a_speedup'
+FNAME = './img/more_tweaks_b'
 
 
 BACK = [0.1]*3
@@ -37,17 +32,21 @@ PI = pi
 TWOPI = 2.*pi
 
 NMAX = 2*1e8
-SIZE = 1000
+SIZE = 2000
 ONE = 1./SIZE
 
-STP = ONE
-FARL = 20.*ONE
+STP = ONE*0.7
+FARL = 30.*ONE
 NEARL = 3.*ONE
 GROW_NEAR_LIMIT = 1.1*NEARL
 
 MID = 0.5
-INIT_R = 0.0001
-INIT_N = 100
+INIT_R = 0.001
+INIT_N = 20
+
+
+#### 
+
 
 RENDER_ITT = 500 # redraw this often
 
@@ -273,7 +272,8 @@ def get_zz(xx,nz):
 def init_circle(l,ix,iy,r,n):
 
   th = sort(random(n)*TWOPI)
-  xx = column_stack( (ix+cos(th)*r, iy+sin(th)*r) )
+  rad = (0.9 + 0.1*(0.5-random(n)))*r
+  xx = column_stack( (ix+cos(th)*rad, iy+sin(th)*rad) )
 
   vv = []
   for x in xx:
@@ -304,7 +304,6 @@ def segment_lengths(l):
   
   return kvv,dx,dd
 
-
 def segment_attract(l,sx,nearl):
 
   kvv,dx,dd = segment_lengths(l)
@@ -320,7 +319,9 @@ def main():
   L = Line()
   render = Render(SIZE)
 
-  init_circle(L,MID,MID,INIT_R,INIT_N)
+  init_circle(L,MID,MID,0.24,230)
+  init_circle(L,MID-0.05,MID-0.05,0.001,50)
+
 
   SX = zeros((NMAX,2),'float')
 
@@ -352,11 +353,12 @@ def main():
       render.sur.write_to_png(fn)
 
     vnum = L.vnum
+
     SX[:vnum,:] = 0.
 
-    segment_attract(L,SX[:L.vnum,:],NEARL)
-
-    pyx_collision_reject(L,SX[:L.vnum,:],FARL,ZONES)
+    segment_attract(L,SX[:vnum,:],NEARL)
+    SX[:vnum,:] *= 0.5
+    pyx_collision_reject(L,SX[:vnum,:],FARL,ZONES)
 
     SX[:vnum,:] *= STP
     L.X[:vnum,:] += SX[:vnum,:]
