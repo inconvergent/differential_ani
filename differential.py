@@ -32,7 +32,7 @@ PI = pi
 TWOPI = 2.*pi
 
 NMAX = 2*1e8
-SIZE = 3000
+SIZE = 1500
 ONE = 1./SIZE
 
 STP = ONE*0.9
