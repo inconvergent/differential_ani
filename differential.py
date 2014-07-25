@@ -16,13 +16,13 @@ from itertools import count
 from speedup.speedup import pyx_collision_reject
 from speedup.speedup import pyx_growth
 
-seed(4)
+#seed(4)
 
-FNAME = './img/more_tweaks_b'
+FNAME = './img/xx'
 
 
-BACK = [0.1]*3
-FRONT = [0.8,0.8,0.8,0.9]
+BACK = [1]*3
+FRONT = [0,0,0,0.9]
 
 CONTRASTA = [0.84,0.37,0] # orange
 CONTRASTB = [0.53,0.53,1] # lightblue
@@ -32,17 +32,17 @@ PI = pi
 TWOPI = 2.*pi
 
 NMAX = 2*1e8
-SIZE = 2000
+SIZE = 3000
 ONE = 1./SIZE
 
-STP = ONE*0.7
+STP = ONE*0.9
 FARL = 30.*ONE
 NEARL = 3.*ONE
 GROW_NEAR_LIMIT = 1.1*NEARL
 
 MID = 0.5
-INIT_R = 0.001
-INIT_N = 20
+
+LINEWIDTH = 3.*ONE
 
 
 #### 
@@ -319,8 +319,11 @@ def main():
   L = Line()
   render = Render(SIZE)
 
-  init_circle(L,MID,MID,0.24,230)
-  init_circle(L,MID-0.05,MID-0.05,0.001,50)
+  init_circle(L,MID-0.1,MID-0.1,0.001,50)
+  init_circle(L,MID+0.1,MID+0.1,0.001,50)
+
+  init_circle(L,MID-0.1,MID+0.1,0.001,50)
+  init_circle(L,MID+0.1,MID-0.1,0.001,50)
 
 
   SX = zeros((NMAX,2),'float')
@@ -330,7 +333,7 @@ def main():
 
     render.clear_canvas()
     render.ctx.set_source_rgba(*FRONT)
-    render.ctx.set_line_width(ONE*2.)
+    render.ctx.set_line_width(LINEWIDTH)
     for vv in l.SV[:l.sind,:][l.SVMASK[:l.sind]>0,:]:
       render.line(l.X[vv[0],0],l.X[vv[0],1],
                   l.X[vv[1],0],l.X[vv[1],1])
@@ -355,7 +358,6 @@ def main():
     vnum = L.vnum
 
     SX[:vnum,:] = 0.
-
     segment_attract(L,SX[:vnum,:],NEARL)
     SX[:vnum,:] *= 0.5
     pyx_collision_reject(L,SX[:vnum,:],FARL,ZONES)
