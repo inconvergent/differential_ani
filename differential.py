@@ -6,7 +6,7 @@ import cairo, Image
 import gtk, gobject
 
 from numpy import cos, sin, pi, sqrt, sort, square,array, zeros, diff,\
-                  column_stack,ones, reshape
+                  column_stack,ones, reshape, linspace
 
 from numpy import sum as npsum
 from numpy.random import random, seed
@@ -16,7 +16,7 @@ from itertools import count
 from speedup.speedup import pyx_collision_reject
 from speedup.speedup import pyx_growth
 
-#seed(4)
+seed(4)
 
 FNAME = './img/xx'
 
@@ -45,7 +45,7 @@ MID = 0.5
 LINEWIDTH = 3.*ONE
 
 
-#### 
+####
 
 
 RENDER_ITT = 500 # redraw this often
@@ -292,6 +292,34 @@ def init_circle(l,ix,iy,r,n):
   connected_to.append(first)
   l._add_segment(vv[0],vv[-1],connected_to=connected_to)
 
+
+def init_horizontal_line(l,x1,x2,y1,y2,n):
+
+  if n<3:
+    raise ValueError('n must be larger than 2.')
+  if x1>x2:
+    raise ValueError('x1 must be smaller than x2.')
+  if y1>y2:
+    raise ValueError('y1 must be smaller than y2.')
+
+  x = sort(x1+(x2-x1)*random(n))
+  y = y1 + (y2-y1)*random(n)
+  xx = column_stack((x,y))
+
+  vv = []
+  for x in xx:
+    vv.append(l._add_vertex(x))
+
+  connected_to = []
+  
+  for i in xrange(len(vv)-1):
+    
+    seg = l._add_segment(vv[i],vv[i+1], connected_to=connected_to)
+    if i == 0:
+      first = seg
+
+    connected_to = [seg]
+
 def segment_lengths(l):
 
   kvv = l.SV[:l.sind,:][l.SVMASK[:l.sind]>0,:]
@@ -319,15 +347,13 @@ def main():
   L = Line()
   render = Render(SIZE)
 
-  init_circle(L,MID-0.1,MID-0.1,0.001,50)
-  init_circle(L,MID+0.1,MID+0.1,0.001,50)
+  #init_circle(L,MID,MID,0.001,50)
+  #init_horizontal_line(L,MID-0.2,MID+0.2,MID-0.001,MID+0.001,500)
 
-  init_circle(L,MID-0.1,MID+0.1,0.001,50)
-  init_circle(L,MID+0.1,MID-0.1,0.001,50)
-
+  for y in linspace(0.3,0.7,6):
+    init_horizontal_line(L,MID-0.2,MID+0.2,y-0.0001,y+0.0001,100)
 
   SX = zeros((NMAX,2),'float')
-
 
   def show(render,l):
 
@@ -376,7 +402,7 @@ def main():
 
 if __name__ == '__main__' :
 
-  if True:
+  if False:
 
     import pstats, cProfile
     fn = './profile/profile'

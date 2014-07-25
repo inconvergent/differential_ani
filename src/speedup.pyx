@@ -113,7 +113,7 @@ def pyx_growth(l,np.ndarray[double, mode="c",ndim=1] rnd ,double near_limit):
   try:
     for i in range(sind):
 
-      if SVMASK[i]>0:
+      if SVMASK[i]>0 and len(SS[i])==2:
 
         s1 = <unsigned int>SS[i][0]
         s2 = <unsigned int>SS[i][1]
@@ -129,9 +129,16 @@ def pyx_growth(l,np.ndarray[double, mode="c",ndim=1] rnd ,double near_limit):
         if dd1<=0. or dd2<=0.:
           continue
 
+        ## rnd<kappa2: spawn if curvature is great
         kappa2 = sqrt(1.-fabs( dx1/dd1*dx2/dd2+dy1/dd1*dy2/dd2 ))
 
-        if (dd1+dd2)*0.5>near_limit and rnd[i]<kappa2:
+        ## rnd<inv_kappa2: spawn if curvature is low
+        inv_kappa2 = sqrt(fabs( dx1/dd1*dx2/dd2+dy1/dd1*dy2/dd2 ))
+
+        #if (dd1+dd2)*0.5>near_limit and rnd[i]<kappa2:
+        #if (dd1+dd2)*0.5>near_limit and rnd[i]<inv_kappa2:
+
+        if (dd1+dd2)*0.5>near_limit*0.9 and rnd[i]<0.0001:
           grow[count] = i
           count += 1
 
