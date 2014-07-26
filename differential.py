@@ -175,7 +175,7 @@ class Line(object):
     self.X = zeros((NMAX,2),'float')
     self.SV = zeros((NMAX,2),'int')
     self.SVMASK = zeros(NMAX,'int')
-    self.SS = {}
+    self.VS = {}
 
     self.vnum = 0
     self.snum = 0
@@ -218,29 +218,22 @@ class Line(object):
 
     self.VZ[mask] = zz[mask]
 
-  def _add_segment(self,a,b,connected_to=[]):
+  def _add_segment(self,a,b):
     """
     add new segment between vertices a,b. 
-    segment will be connected to segments in connected_to and
-    vice versa.
     """
-
-    for seg in connected_to:
-
-      if self.SS.has_key(seg):
-        self.SS[seg].append(self.sind)
-      else:
-        self.SS[seg] = [self.sind]
-
-      if self.SS.has_key(self.sind):
-        self.SS[self.sind].append(seg)
-      else:
-        self.SS[self.sind] = [seg]
 
     self.SV[self.sind,:] = [a,b]
     self.SVMASK[self.sind] = 1
+
+    add = make_dict_list_add(self.VS)
+
+    add(a,self.sind)
+    add(b,self.sind)
+
     self.sind += 1
     self.snum += 1
+
     return self.sind-1
 
   #def _add_vertex_segment(self,x,a):
@@ -251,9 +244,6 @@ class Line(object):
     #v = self._add_vertex(x)
     #self._add_segment(a,b)
 
-    ##a_connected_to = self.SS[a]
-
-
   def _delete_segment(self,a):
     """
     delete segment a and related connections.
@@ -263,11 +253,13 @@ class Line(object):
     self.SVMASK[a] = 0
     self.snum -= 1
 
-    connected_to = self.SS[a]
-    for seg in connected_to:
-      self.SS[seg] = [h for h in self.SS[seg] if not h==a]
-
-    del(self.SS[a])
+    for v in vv:
+      if self.VS.has_key(v):
+        vs = [s for s in self.VS[v] if s!=a]
+        if len(vs)>0:
+          self.VS[v] = vs
+        else:
+          del(self.VS[v])
 
     return vv
 
@@ -283,26 +275,23 @@ class Line(object):
     #TODO: improve
 
     newv = self._add_vertex([midx,midy])
-
-    connected_to_a = self.SS[a]
-    connected_to_b = []
-    connected_to_c = []
-
-    for seg in connected_to_a:
-
-      if vv[0] in self.SV[seg,:]:
-        connected_to_b.append(seg)
-      if vv[1] in self.SV[seg,:]:
-        connected_to_c.append(seg)
-
-    b = self._add_segment(vv[0],newv,connected_to=connected_to_b)
-    connected_to_c.append(b)
-    c = self._add_segment(vv[1],newv,connected_to=connected_to_c)
-
     self._delete_segment(a)
+    b = self._add_segment(vv[0],newv)
+    c = self._add_segment(vv[1],newv)
 
     return newv, [b,c]
 
+
+def make_dict_list_add(d):
+
+  def add(k,v):
+
+    if d.has_key(k):
+      d[k].append(v)
+    else:
+      d[k] = [v]
+
+  return add
 
 def get_z(x,nz):
   """
@@ -333,18 +322,10 @@ def init_circle(l,ix,iy,r,n):
   for x in xx:
     vv.append(l._add_vertex(x))
 
-  connected_to = []
-  
   for i in xrange(len(vv)-1):
-    
-    seg = l._add_segment(vv[i],vv[i+1], connected_to=connected_to)
-    if i == 0:
-      first = seg
+    seg = l._add_segment(vv[i],vv[i+1])
 
-    connected_to = [seg]
-  
-  connected_to.append(first)
-  l._add_segment(vv[0],vv[-1],connected_to=connected_to)
+  l._add_segment(vv[0],vv[-1])
 
 
 def init_horizontal_line(l,x1,x2,y1,y2,n):
@@ -363,16 +344,12 @@ def init_horizontal_line(l,x1,x2,y1,y2,n):
   vv = []
   for x in xx:
     vv.append(l._add_vertex(x))
-
-  connected_to = []
   
   for i in xrange(len(vv)-1):
     
-    seg = l._add_segment(vv[i],vv[i+1], connected_to=connected_to)
+    seg = l._add_segment(vv[i],vv[i+1])
     if i == 0:
       first = seg
-
-    connected_to = [seg]
 
 def segment_lengths(l):
 
