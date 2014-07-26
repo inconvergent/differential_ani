@@ -6,7 +6,7 @@ import cairo, Image
 import gtk, gobject
 
 from numpy import cos, sin, pi, sqrt, sort, square,array, zeros, diff,\
-                  column_stack,ones, reshape, linspace
+                  column_stack,ones, reshape, linspace, arctan2
 
 from numpy import sum as npsum
 from numpy.random import random, seed
@@ -14,7 +14,7 @@ from numpy.random import random, seed
 from itertools import count
 
 from speedup.speedup import pyx_collision_reject
-from speedup.speedup import pyx_growth
+from speedup.speedup import pyx_growth_branch
 
 seed(4)
 
@@ -22,7 +22,7 @@ FNAME = './img/xx'
 
 
 BACK = [1]*3
-FRONT = [0,0,0,0.9]
+FRONT = [0,0,0,0.7]
 
 CONTRASTA = [0.84,0.37,0] # orange
 CONTRASTB = [0.53,0.53,1] # lightblue
@@ -75,7 +75,6 @@ class Render(object):
     self.darea = darea
 
     self.num_img = 0
-
 
   def clear_canvas(self):
 
@@ -133,6 +132,26 @@ class Render(object):
       self.ctx.arc(x,y,r,0,TWOPI)
       action()
 
+  def circle_stroke(self,x1,y1,x2,y2,r):
+
+    dx = x1-x2
+    dy = y1-y2
+    dd = sqrt(dx*dx+dy*dy)
+
+    n = int(dd/ONE)
+    n = n if n>2 else 2
+
+    a = arctan2(dy,dx)
+
+    scale = linspace(0,dd,n)
+
+    xp = x1-scale*cos(a)
+    yp = y1-scale*sin(a)
+
+    for x,y in zip(xp,yp):
+      self.ctx.arc(x,y,r,0,pi*2.) 
+      self.ctx.fill()
+
   def expose(self,*args):
 
     cr = self.darea.window.cairo_create()
@@ -163,10 +182,13 @@ class Line(object):
     self.sind = 0
 
     self.ZV = [[] for i in xrange((ZONES+2)**2)]
-    print len(self.ZV)
     self.VZ = zeros(NMAX,'int')
 
   def _add_vertex(self,x):
+    """
+    add vertex loctated at x.
+    zone maps are updated.
+    """
 
     vnum = self.vnum
     self.X[vnum,:] = x
@@ -178,6 +200,9 @@ class Line(object):
     return self.vnum-1
 
   def update_zone_maps(self):
+    """
+    check if vertices have changed zone, and update those that have.
+    """
     
     vnum = self.vnum
     zz = get_zz(self.X[:vnum,:],ZONES)
@@ -194,6 +219,11 @@ class Line(object):
     self.VZ[mask] = zz[mask]
 
   def _add_segment(self,a,b,connected_to=[]):
+    """
+    add new segment between vertices a,b. 
+    segment will be connected to segments in connected_to and
+    vice versa.
+    """
 
     for seg in connected_to:
 
@@ -213,7 +243,21 @@ class Line(object):
     self.snum += 1
     return self.sind-1
 
+  #def _add_vertex_segment(self,x,a):
+    #"""
+    #add new vertex x connected to vertex a with a new segment.
+    #"""
+
+    #v = self._add_vertex(x)
+    #self._add_segment(a,b)
+
+    ##a_connected_to = self.SS[a]
+
+
   def _delete_segment(self,a):
+    """
+    delete segment a and related connections.
+    """
 
     vv = self.SV[a,:]
     self.SVMASK[a] = 0
@@ -228,6 +272,10 @@ class Line(object):
     return vv
 
   def split_segment(self,a):
+    """
+    add new vertex, v, at the middle of segment a with vertices: [v0,v1]
+    creates new segments b,c such that: v0 -b- v -c- v1
+    """
 
     vv = self.SV[a,:]
     midx = (self.X[vv[1],0] + self.X[vv[0],0])*0.5
@@ -257,6 +305,9 @@ class Line(object):
 
 
 def get_z(x,nz):
+  """
+  find zone z of x. we have nz zones in each direction.
+  """
 
   i = 1+int(x[0]*nz) 
   j = 1+int(x[1]*nz) 
@@ -264,6 +315,9 @@ def get_z(x,nz):
   return z
 
 def get_zz(xx,nz):
+  """
+  same as get_z for a vector of points.
+  """
 
   ij = (xx*nz).astype('int')
   zz = ij[:,0]*(nz+2) + ij[:,1]+1
@@ -348,10 +402,7 @@ def main():
   render = Render(SIZE)
 
   #init_circle(L,MID,MID,0.001,50)
-  #init_horizontal_line(L,MID-0.2,MID+0.2,MID-0.001,MID+0.001,500)
-
-  for y in linspace(0.3,0.7,6):
-    init_horizontal_line(L,MID-0.2,MID+0.2,y-0.0001,y+0.0001,100)
+  init_horizontal_line(L,MID-0.2,MID+0.2,MID-0.001,MID+0.001,100)
 
   SX = zeros((NMAX,2),'float')
 
@@ -361,14 +412,17 @@ def main():
     render.ctx.set_source_rgba(*FRONT)
     render.ctx.set_line_width(LINEWIDTH)
     for vv in l.SV[:l.sind,:][l.SVMASK[:l.sind]>0,:]:
-      render.line(l.X[vv[0],0],l.X[vv[0],1],
-                  l.X[vv[1],0],l.X[vv[1],1])
+      #render.line(l.X[vv[0],0],l.X[vv[0],1],
+                  #l.X[vv[1],0],l.X[vv[1],1])
+      render.circle_stroke(l.X[vv[0],0],l.X[vv[0],1],
+                           l.X[vv[1],0],l.X[vv[1],1], ONE*2)
 
 
   def step():
 
-    rnd = random(L.sind)
-    pyx_growth(L,rnd,GROW_NEAR_LIMIT)
+    rnd1 = random(L.sind)
+    rnd2 = random(L.sind)
+    pyx_growth_branch(L,rnd1,rnd2,GROW_NEAR_LIMIT)
 
     L.update_zone_maps()
 
