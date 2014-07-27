@@ -124,15 +124,92 @@ def pyx_segment_attract(l,np.ndarray[double, mode="c",ndim=2] sx,double near_lim
 
   return
 
+#@cython.wraparound(False)
+#@cython.boundscheck(False)
+#@cython.nonecheck(False)
+#@cython.cdivision(True)
+#def pyx_growth_branch(l,\
+                      #np.ndarray[double, mode="c",ndim=1] rnd_split,\
+                      #np.ndarray[double, mode="c",ndim=1] rnd_branch,\
+                      #double near_limit):
+
+  #cdef unsigned int sind = l.sind
+  #cdef unsigned int vnum = l.vnum
+
+  #cdef np.ndarray[long, mode="c",ndim=1] SVMASK = l.SVMASK[:sind]
+  #cdef np.ndarray[long, mode="c",ndim=2] SV = l.SV[:sind,:]
+  #cdef np.ndarray[double, mode="c",ndim=2] X = l.X[:vnum,:]
+
+  #cdef unsigned int i
+  #cdef unsigned int c
+  #cdef unsigned int count_grow = 0
+  #cdef unsigned int count_branch = 0
+
+  #cdef double dx
+  #cdef double dy
+  #cdef double dd
+
+  #cdef int *grow = <int *>malloc(sind*sizeof(int))
+  #if not grow:
+    #raise MemoryError()
+
+  #cdef int *branch = <int *>malloc(sind*sizeof(int))
+  #if not branch:
+    #raise MemoryError()
+
+  #try:
+    #for i in range(sind):
+
+      #if SVMASK[i]>0:
+
+        #dx = X[SV[i,0],0] - X[SV[i,1],0]
+        #dy = X[SV[i,0],1] - X[SV[i,1],1]
+        #dd = norm(dx,dy)
+
+        #if dd<=0.:
+          #continue
+
+        #if dd>near_limit*0.9:
+
+          #if  rnd_split[i]<0.0001:
+            #grow[count_grow] = i
+            #count_grow += 1
+            #continue
+
+          #if rnd_branch[i]<0.0001:
+            #branch[count_branch] = i
+            #count_branch += 1
+            #continue
+
+
+    #for c in range(count_grow):
+      #l.split_segment(grow[c])
+
+    #for c in range(count_branch):
+      #k = branch[c]
+      #v1 = SV[k,0]
+      #v2 = SV[k,1]
+
+      #the = random()*3.14*2
+      #x = X[v2,0] + np.sin(the)*near_limit
+      #y = X[v2,1] + np.cos(the)*near_limit
+
+      #l._add_vertex_segment([x,y],v2)
+
+  #finally:
+    #free(grow)
+    #free(branch)
+
+  #return
+
 
 @cython.wraparound(False)
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-def pyx_growth_branch(l,\
-                      np.ndarray[double, mode="c",ndim=1] rnd_split,\
-                      np.ndarray[double, mode="c",ndim=1] rnd_branch,\
-                      double near_limit):
+def pyx_growth(l,\
+               np.ndarray[double, mode="c",ndim=1] rnd_split,\
+               double near_limit):
 
   cdef unsigned int sind = l.sind
   cdef unsigned int vnum = l.vnum
@@ -144,7 +221,6 @@ def pyx_growth_branch(l,\
   cdef unsigned int i
   cdef unsigned int c
   cdef unsigned int count_grow = 0
-  cdef unsigned int count_branch = 0
 
   cdef double dx
   cdef double dy
@@ -153,10 +229,6 @@ def pyx_growth_branch(l,\
   cdef int *grow = <int *>malloc(sind*sizeof(int))
   if not grow:
     raise MemoryError()
-
-  #cdef int *branch = <int *>malloc(sind*sizeof(int))
-  #if not branch:
-    #raise MemoryError()
 
   try:
     for i in range(sind):
@@ -175,24 +247,12 @@ def pyx_growth_branch(l,\
           if  rnd_split[i]<0.0001:
             grow[count_grow] = i
             count_grow += 1
-            continue
-
-          #if rnd_branch[i]<0.0001:
-            #branch[count_branch]
-            #grow[count_branch] = i
-            #count_branch += 1
-            #continue
-
 
     for c in range(count_grow):
       l.split_segment(grow[c])
 
-    #for c in range(count_branch):
-      #l.(grow[c])
-
   finally:
     free(grow)
-    #free(branch)
 
   return
 

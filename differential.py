@@ -14,7 +14,8 @@ from numpy.random import random, seed
 from itertools import count
 
 from speedup.speedup import pyx_collision_reject
-from speedup.speedup import pyx_growth_branch
+#from speedup.speedup import pyx_growth_branch
+from speedup.speedup import pyx_growth
 from speedup.speedup import pyx_segment_attract
 
 seed(4)
@@ -49,7 +50,7 @@ LINEWIDTH = 3.*ONE
 ####
 
 
-RENDER_ITT = 500 # redraw this often
+RENDER_ITT = 2000 # redraw this often
 
 ZONEWIDTH = FARL/ONE
 ZONES = int(SIZE/ZONEWIDTH)
@@ -162,8 +163,9 @@ class Render(object):
   def step_wrap(self,*args):
 
     res = self.step()
-    self.expose()
     self.steps += 1
+    if not self.steps%RENDER_ITT:
+      self.expose()
 
     return res
 
@@ -237,13 +239,13 @@ class Line(object):
 
     return self.sind-1
 
-  #def _add_vertex_segment(self,x,a):
-    #"""
-    #add new vertex x connected to vertex a with a new segment.
-    #"""
+  def _add_vertex_segment(self,x,a):
+    """
+    add new vertex x connected to vertex a with a new segment.
+    """
 
-    #v = self._add_vertex(x)
-    #self._add_segment(a,b)
+    v = self._add_vertex(x)
+    self._add_segment(v,a)
 
   def _delete_segment(self,a):
     """
@@ -351,8 +353,8 @@ def main():
   L = Line()
   render = Render(SIZE)
 
-  init_circle(L,MID,MID,0.001,50)
-  #init_horizontal_line(L,MID-0.2,MID+0.2,MID-0.001,MID+0.001,100)
+  #init_circle(L,MID,MID,0.001,50)
+  init_horizontal_line(L,MID-0.2,MID+0.2,MID-0.001,MID+0.001,100)
 
   SX = zeros((NMAX,2),'float')
 
@@ -370,7 +372,8 @@ def main():
 
     rnd1 = random(L.sind)
     #rnd2 = random(L.sind)
-    pyx_growth_branch(L,rnd1,rnd1,GROW_NEAR_LIMIT)
+    pyx_growth(L,rnd1,GROW_NEAR_LIMIT)
+    #pyx_growth_branch(L,rnd1,rnd2,GROW_NEAR_LIMIT)
 
     L.update_zone_maps()
 
@@ -389,9 +392,7 @@ def main():
 
     pyx_segment_attract(L,SX[:vnum,:],NEARL)
     pyx_collision_reject(L,SX[:vnum,:],FARL,ZONES)
-
     SX[:vnum,:] *= STP
-    #print abs(SX[:vnum,:]).max(),abs(SX[:vnum,:]).min(), abs(SX[:vnum,:]).mean()
 
     L.X[:vnum,:] += SX[:vnum,:]
 
@@ -406,7 +407,7 @@ def main():
 
 if __name__ == '__main__' :
 
-  if False:
+  if True:
 
     import pstats, cProfile
     fn = './profile/profile'
