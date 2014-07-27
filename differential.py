@@ -15,6 +15,7 @@ from itertools import count
 
 from speedup.speedup import pyx_collision_reject
 from speedup.speedup import pyx_growth_branch
+from speedup.speedup import pyx_segment_attract
 
 seed(4)
 
@@ -37,8 +38,8 @@ ONE = 1./SIZE
 
 STP = ONE*0.9
 FARL = 30.*ONE
-NEARL = 3.*ONE
-GROW_NEAR_LIMIT = 1.1*NEARL
+NEARL = 4.*ONE
+GROW_NEAR_LIMIT = NEARL
 
 MID = 0.5
 
@@ -344,35 +345,14 @@ def init_horizontal_line(l,x1,x2,y1,y2,n):
     if i == 0:
       first = seg
 
-def segment_lengths(l):
-
-  kvv = l.SV[:l.sind,:][l.SVMASK[:l.sind]>0,:]
-  dx = diff(l.X[kvv,:],axis=1).squeeze()
-  dd = square(dx)
-  dd = npsum(dd,axis=1)
-  sqrt(dd,dd)
-
-  dx /= reshape(dd,(l.snum,1))
-  
-  return kvv,dx,dd
-
-def segment_attract(l,sx,nearl,scale=1.):
-
-  kvv,dx,dd = segment_lengths(l)
-
-  mask = dd>nearl
-  sx[kvv[mask,0],:] += dx[mask,:]
-  sx[kvv[mask,1],:] -= dx[mask,:]
-
-
 
 def main():
 
   L = Line()
   render = Render(SIZE)
 
-  #init_circle(L,MID,MID,0.001,50)
-  init_horizontal_line(L,MID-0.2,MID+0.2,MID-0.001,MID+0.001,100)
+  init_circle(L,MID,MID,0.001,50)
+  #init_horizontal_line(L,MID-0.2,MID+0.2,MID-0.001,MID+0.001,100)
 
   SX = zeros((NMAX,2),'float')
 
@@ -389,8 +369,8 @@ def main():
   def step():
 
     rnd1 = random(L.sind)
-    rnd2 = random(L.sind)
-    pyx_growth_branch(L,rnd1,rnd2,GROW_NEAR_LIMIT)
+    #rnd2 = random(L.sind)
+    pyx_growth_branch(L,rnd1,rnd1,GROW_NEAR_LIMIT)
 
     L.update_zone_maps()
 
@@ -406,11 +386,13 @@ def main():
     vnum = L.vnum
 
     SX[:vnum,:] = 0.
-    segment_attract(L,SX[:vnum,:],NEARL)
-    SX[:vnum,:] *= 0.5
+
+    pyx_segment_attract(L,SX[:vnum,:],NEARL)
     pyx_collision_reject(L,SX[:vnum,:],FARL,ZONES)
 
     SX[:vnum,:] *= STP
+    #print abs(SX[:vnum,:]).max(),abs(SX[:vnum,:]).min(), abs(SX[:vnum,:]).mean()
+
     L.X[:vnum,:] += SX[:vnum,:]
 
     return True

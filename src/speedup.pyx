@@ -80,6 +80,55 @@ def pyx_collision_reject(l,np.ndarray[double, mode="c",ndim=2] sx,double farl, i
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
+def pyx_segment_attract(l,np.ndarray[double, mode="c",ndim=2] sx,double near_limit):
+
+  cdef unsigned int vnum = l.vnum
+  cdef unsigned int sind = l.sind
+  cdef unsigned int v1
+  cdef unsigned int v2
+  cdef unsigned int k
+
+  cdef np.ndarray[double, mode="c",ndim=2] X = l.X[:vnum,:]
+  cdef np.ndarray[long, mode="c",ndim=2] SV = l.SV[:sind,:]
+  cdef np.ndarray[long, mode="c",ndim=1] SVMASK = l.SVMASK[:sind]
+
+  cdef double x
+  cdef double y
+  cdef double dx
+  cdef double dy
+  cdef double dd
+  cdef double forcex
+  cdef double forcey
+
+  for k in xrange(sind):
+
+    if SVMASK[k]>0:
+
+      v1 =  SV[k,0]
+      v2 =  SV[k,1]
+
+      dx = X[v2,0]-X[v1,0]
+      dy = X[v2,1]-X[v1,1]
+      dd = norm(dx,dy)
+      
+      if dd>near_limit:
+
+        forcex = dx/dd
+        forcey = dy/dd
+
+        sx[v1,0] += forcex
+        sx[v1,1] += forcey
+
+        sx[v2,0] -= forcex
+        sx[v2,1] -= forcey
+
+  return
+
+
+@cython.wraparound(False)
+@cython.boundscheck(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
 def pyx_growth_branch(l,\
                       np.ndarray[double, mode="c",ndim=1] rnd_split,\
                       np.ndarray[double, mode="c",ndim=1] rnd_branch,\
