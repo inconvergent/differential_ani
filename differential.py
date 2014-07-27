@@ -330,13 +330,6 @@ def init_circle(l,ix,iy,r,n):
 
 def init_horizontal_line(l,x1,x2,y1,y2,n):
 
-  if n<3:
-    raise ValueError('n must be larger than 2.')
-  if x1>x2:
-    raise ValueError('x1 must be smaller than x2.')
-  if y1>y2:
-    raise ValueError('y1 must be smaller than y2.')
-
   x = sort(x1+(x2-x1)*random(n))
   y = y1 + (y2-y1)*random(n)
   xx = column_stack((x,y))
@@ -363,7 +356,7 @@ def segment_lengths(l):
   
   return kvv,dx,dd
 
-def segment_attract(l,sx,nearl):
+def segment_attract(l,sx,nearl,scale=1.):
 
   kvv,dx,dd = segment_lengths(l)
 
@@ -389,8 +382,6 @@ def main():
     render.ctx.set_source_rgba(*FRONT)
     render.ctx.set_line_width(LINEWIDTH)
     for vv in l.SV[:l.sind,:][l.SVMASK[:l.sind]>0,:]:
-      #render.line(l.X[vv[0],0],l.X[vv[0],1],
-                  #l.X[vv[1],0],l.X[vv[1],1])
       render.circle_stroke(l.X[vv[0],0],l.X[vv[0],1],
                            l.X[vv[1],0],l.X[vv[1],1], ONE*2)
 
