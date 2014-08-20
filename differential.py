@@ -151,7 +151,7 @@ class Render(object):
     yp = y1-scale*sin(a)
 
     for x,y in zip(xp,yp):
-      self.ctx.arc(x,y,r,0,pi*2.) 
+      self.ctx.arc(x,y,r,0,pi*2.)
       self.ctx.fill()
 
   def expose(self,*args):
@@ -206,7 +206,7 @@ class Line(object):
     """
     check if vertices have changed zone, and update those that have.
     """
-    
+
     vnum = self.vnum
     zz = get_zz(self.X[:vnum,:],ZONES)
     mask = (zz != self.VZ[:vnum]).nonzero()[0]
@@ -223,7 +223,7 @@ class Line(object):
 
   def _add_segment(self,a,b):
     """
-    add new segment between vertices a,b. 
+    add new segment between vertices a,b.
     """
 
     self.SV[self.sind,:] = [a,b]
@@ -301,8 +301,8 @@ def get_z(x,nz):
   find zone z of x. we have nz zones in each direction.
   """
 
-  i = 1+int(x[0]*nz) 
-  j = 1+int(x[1]*nz) 
+  i = 1+int(x[0]*nz)
+  j = 1+int(x[1]*nz)
   z = i*nz+j
   return z
 
@@ -340,9 +340,9 @@ def init_horizontal_line(l,x1,x2,y1,y2,n):
   vv = []
   for x in xx:
     vv.append(l._add_vertex(x))
-  
+
   for i in xrange(len(vv)-1):
-    
+
     seg = l._add_segment(vv[i],vv[i+1])
     if i == 0:
       first = seg
@@ -353,8 +353,8 @@ def main():
   L = Line()
   render = Render(SIZE)
 
-  #init_circle(L,MID,MID,0.001,50)
-  init_horizontal_line(L,MID-0.2,MID+0.2,MID-0.001,MID+0.001,100)
+  init_circle(L,MID,MID,0.001,50)
+  #init_horizontal_line(L,MID-0.2,MID+0.2,MID-0.001,MID+0.001,100)
 
   SX = zeros((NMAX,2),'float')
 
@@ -381,7 +381,7 @@ def main():
 
       show(render,L)
       print 'steps:',render.steps,'vnum:',L.vnum,'snum:',L.snum
-     
+
       fn = '{:s}_nearl{:0.0f}_itt{:07d}.png'
       fn = fn.format(FNAME,FARL/ONE,render.steps)
       render.sur.write_to_png(fn)
