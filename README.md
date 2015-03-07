@@ -8,7 +8,7 @@ of connected nodes in a circle. Gradually we introduce new nodes on the
 line—prioritizing segments where the curve bends more sharply. Over time the
 curve grows increasingly intricate, but it never self-intersects.
 
-![differential](http://inconvergent.net/xstatic/img-content/differential_a.jpg "differential")
+![differential](http://inconvergent.net/img/differential_a.jpg "differential")
 
 -----------
 http://inconvergent.net
